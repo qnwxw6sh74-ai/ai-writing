@@ -3,8 +3,9 @@
 import { useState } from "react"
 
 interface Props {
-  onGenerate: (params: { keyword: string; domain: string; style: string; wordCount: number }) => void
+  onGenerate: (params: { keyword: string; domain: string; style: string; wordCount: number; modelId?: number }) => void
   isLoading: boolean
+  models?: { id: number; name: string }[]
 }
 
 const domains = ["情感", "职场", "教育", "科技", "养生", "娱乐", "财经", "法律", "历史", "美食"]
@@ -15,16 +16,17 @@ const wordCounts = [
   { label: "长文 (~2500字)", value: 2500 },
 ]
 
-export function ArticleForm({ onGenerate, isLoading }: Props) {
+export function ArticleForm({ onGenerate, isLoading, models }: Props) {
   const [keyword, setKeyword] = useState("")
   const [domain, setDomain] = useState("情感")
   const [style, setStyle] = useState("情感共鸣")
   const [wordCount, setWordCount] = useState(1500)
+  const [modelId, setModelId] = useState<number | undefined>(undefined)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!keyword.trim()) return
-    onGenerate({ keyword: keyword.trim(), domain, style, wordCount })
+    onGenerate({ keyword: keyword.trim(), domain, style, wordCount, modelId })
   }
 
   const selectClasses = "w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
@@ -40,31 +42,48 @@ export function ArticleForm({ onGenerate, isLoading }: Props) {
           type="text"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="例如：中年人的婚姻危机、AI如何改变教育..."
+          placeholder="输入文章主题，如：中年婚姻危机、AI如何改变教育..."
           className={inputClasses}
           required
         />
+        <p className="text-xs text-zinc-600 mt-1.5">多个关键词用逗号或顿号分隔，AI 会综合多个关键词进行创作</p>
       </div>
 
-      <div className="grid sm:grid-cols-3 gap-4">
+      <div className="grid sm:grid-cols-4 gap-4">
         <div>
           <label className="block text-sm font-semibold text-zinc-300 mb-2">写作领域</label>
-          <select value={domain} onChange={(e) => setDomain(e.target.value)} className={selectClasses}>
+          <select value={domain} onChange={(e) => setDomain(e.target.value)} className={selectClasses} title="写作领域">
             {domains.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-sm font-semibold text-zinc-300 mb-2">内容风格</label>
-          <select value={style} onChange={(e) => setStyle(e.target.value)} className={selectClasses}>
+          <select value={style} onChange={(e) => setStyle(e.target.value)} className={selectClasses} title="内容风格">
             {styles.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-sm font-semibold text-zinc-300 mb-2">文章长度</label>
-          <select value={wordCount} onChange={(e) => setWordCount(parseInt(e.target.value))} className={selectClasses}>
+          <select value={wordCount} onChange={(e) => setWordCount(parseInt(e.target.value))} className={selectClasses} title="文章长度">
             {wordCounts.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
           </select>
         </div>
+        {models && models.length > 1 && (
+          <div>
+            <label className="block text-sm font-semibold text-zinc-300 mb-2">AI模型</label>
+            <select
+              value={modelId ?? ""}
+              onChange={(e) => setModelId(e.target.value ? parseInt(e.target.value) : undefined)}
+              className={selectClasses}
+              title="AI模型"
+            >
+              <option value="">自动选择</option>
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <button

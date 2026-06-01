@@ -1,15 +1,35 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateMockTitles } from "@/lib/mock-ai"
 import { generateTitles } from "@/lib/ai-client"
+import { checkCredits, deductCredits, getUserIdentifier } from "@/lib/credits"
+import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
 import pool from "@/lib/db"
 
 export async function POST(request: NextRequest) {
   try {
-    const { keyword, domain } = await request.json()
+    const { keyword, domain, modelId } = await request.json()
 
     if (!keyword) {
       return NextResponse.json({ error: "关键词不能为空" }, { status: 400 })
     }
+
+    // === 服务端积分检查 ===
+    const userId = getUserIdentifier(
+      request.headers.get("x-forwarded-for"),
+      request.headers.get("x-real-ip")
+    )
+    const creditsCheck = await checkCredits(userId)
+
+    if (!creditsCheck.allowed) {
+      return NextResponse.json(
+        { error: "免费额度已用完，请购买套餐继续使用", code: "NO_CREDITS" },
+        { status: 402 }
+      )
+    }
+
+    // === 解析 AI 模型 ===
+    const resolvedModel = await resolveModel(keyword, modelId)
+    const modelOverrides = resolvedModel ? buildAIConfigFromModel(resolvedModel) : undefined
 
     const mockMode = process.env.MOCK_AI === "true"
     let titles: string[] = []
@@ -32,7 +52,7 @@ export async function POST(request: NextRequest) {
         }
       } catch { /* DB 不可用，用默认 prompt */ }
 
-      titles = await generateTitles(systemPrompt, userPrompt)
+      titles = await generateTitles(systemPrompt, userPrompt, modelOverrides)
     }
 
     // === AI 失败或 Mock 模式 ===
@@ -40,7 +60,10 @@ export async function POST(request: NextRequest) {
       titles = generateMockTitles({ keyword: keyword || "默认话题", domain: domain || "通用" })
     }
 
-    return NextResponse.json({ titles })
+    // === 生成成功，扣除积分 ===
+    const updatedCredits = await deductCredits(userId, "title")
+
+    return NextResponse.json({ titles, credits: updatedCredits })
   } catch (error) {
     console.error("Title generation error:", error)
     return NextResponse.json({ error: "生成失败" }, { status: 500 })

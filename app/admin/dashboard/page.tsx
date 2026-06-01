@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { FileText, LogOut, Globe, DollarSign, PanelRight, ClipboardList, Plus, Trash2, Save, Info, BookOpen, Terminal } from "lucide-react"
+import { FileText, LogOut, Globe, DollarSign, PanelRight, ClipboardList, Plus, Trash2, Save, Info, BookOpen, Terminal, Cpu } from "lucide-react"
 
 interface SiteConfig {
   key: string; value: string; type: string; description: string; group: string
@@ -16,6 +16,9 @@ interface AboutSection {
 interface PromptTemplate {
   id: number; name: string; type: string; domain: string; system_prompt: string; user_prompt_template: string; is_active: number; sort_order: number
 }
+interface AIModel {
+  id: number; name: string; provider: string; api_key: string; base_url: string; model: string; max_tokens: number; temperature: number; is_active: number; keyword_triggers: string; sort_order: number
+}
 
 const tabs = [
   { id: "general", label: "站点设置", icon: Globe },
@@ -26,6 +29,7 @@ const tabs = [
   { id: "ads", label: "广告管理", icon: PanelRight },
   { id: "payment", label: "支付设置", icon: DollarSign },
   { id: "seo", label: "SEO设置", icon: FileText },
+  { id: "models", label: "AI模型", icon: Cpu },
 ]
 
 export default function AdminDashboardPage() {
@@ -46,12 +50,17 @@ export default function AdminDashboardPage() {
   const [prompts, setPrompts] = useState<PromptTemplate[]>([])
   const [editingPrompt, setEditingPrompt] = useState<PromptTemplate | null>(null)
   const [newPrompt, setNewPrompt] = useState(false)
+  // AI模型状态
+  const [models, setModels] = useState<AIModel[]>([])
+  const [editingModel, setEditingModel] = useState<AIModel | null>(null)
+  const [newModel, setNewModel] = useState(false)
 
   useEffect(() => {
     fetchSettings()
     fetchChangelogs()
     fetchAbout()
     fetchPrompts()
+    fetchModels()
   }, [])
 
   const fetchPrompts = async () => {
@@ -94,6 +103,51 @@ export default function AdminDashboardPage() {
     setMessage("✅ 已删除")
     setTimeout(() => setMessage(""), 2000)
     fetchPrompts()
+  }
+
+  // === AI 模型管理 ===
+  const fetchModels = async () => {
+    try {
+      const res = await fetch("/api/admin/models")
+      const data = await res.json()
+      setModels(data.models || [])
+    } catch { /* ignore */ }
+  }
+
+  const handleSaveModel = async () => {
+    if (!editingModel) return
+    setSaving("model")
+    try {
+      if (editingModel.id === 0) {
+        await fetch("/api/admin/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editingModel),
+        })
+      } else {
+        await fetch("/api/admin/models", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editingModel),
+        })
+      }
+      setMessage("✅ 模型已保存")
+      setTimeout(() => setMessage(""), 2000)
+      setEditingModel(null)
+      setNewModel(false)
+      fetchModels()
+    } catch { setMessage("❌ 保存失败") }
+    finally { setSaving(null) }
+  }
+
+  const handleDeleteModel = async (id: number) => {
+    if (!confirm("确定要删除这个 AI 模型吗？")) return
+    const res = await fetch(`/api/admin/models?id=${id}`, { method: "DELETE" })
+    const data = await res.json()
+    if (!res.ok) { setMessage(`❌ ${data.error || "删除失败"}`); setTimeout(() => setMessage(""), 2000); return }
+    setMessage("✅ 已删除")
+    setTimeout(() => setMessage(""), 2000)
+    fetchModels()
   }
 
   const fetchAbout = async () => {
@@ -492,8 +546,122 @@ export default function AdminDashboardPage() {
               </div>
             )}
 
+            {/* ===== AI 模型管理 ===== */}
+            {activeTab === "models" && (
+              <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-white">AI 模型管理</h2>
+                    <p className="text-zinc-500 text-sm">管理可用的 AI 大模型。设置关键词触发可实现自动路由。</p>
+                  </div>
+                  {!newModel && !editingModel && (
+                    <button onClick={() => { setEditingModel({ id: 0, name: "", provider: "deepseek", api_key: "", base_url: "", model: "", max_tokens: 4096, temperature: 0.7, is_active: 1, keyword_triggers: "", sort_order: 0 }); setNewModel(true) }}
+                      className="flex items-center gap-1.5 text-sm bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-500 transition-colors">
+                      <Plus size={16} /> 新增模型
+                    </button>
+                  )}
+                </div>
+
+                {(newModel || editingModel) && editingModel && (
+                  <div className="mb-6 bg-zinc-800/50 rounded-lg border border-zinc-700 p-4 space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">显示名称</label>
+                        <input type="text" value={editingModel.name} onChange={(e) => setEditingModel({ ...editingModel, name: e.target.value })} className={inputClasses} placeholder="DeepSeek V3" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">提供商</label>
+                        <select value={editingModel.provider} onChange={(e) => setEditingModel({ ...editingModel, provider: e.target.value })} className={inputClasses} title="AI提供商">
+                          <option value="deepseek">DeepSeek</option>
+                          <option value="openai">OpenAI</option>
+                          <option value="claude">Claude</option>
+                          <option value="custom">自定义</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">模型标识</label>
+                        <input type="text" value={editingModel.model} onChange={(e) => setEditingModel({ ...editingModel, model: e.target.value })} className={inputClasses} placeholder="deepseek-chat" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">API Key</label>
+                        <input type="password" value={editingModel.api_key} onChange={(e) => setEditingModel({ ...editingModel, api_key: e.target.value })} className={inputClasses} placeholder="sk-..." />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">API 地址（可选）</label>
+                        <input type="text" value={editingModel.base_url} onChange={(e) => setEditingModel({ ...editingModel, base_url: e.target.value })} className={inputClasses} placeholder="留空使用默认地址" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Max Tokens</label>
+                        <input type="number" value={editingModel.max_tokens} onChange={(e) => setEditingModel({ ...editingModel, max_tokens: parseInt(e.target.value) || 4096 })} className={inputClasses} />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Temperature</label>
+                        <input type="number" step="0.1" value={editingModel.temperature} onChange={(e) => setEditingModel({ ...editingModel, temperature: parseFloat(e.target.value) || 0.7 })} className={inputClasses} />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">排序</label>
+                        <input type="number" value={editingModel.sort_order} onChange={(e) => setEditingModel({ ...editingModel, sort_order: parseInt(e.target.value) || 0 })} className={inputClasses} />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">状态</label>
+                        <select value={editingModel.is_active} onChange={(e) => setEditingModel({ ...editingModel, is_active: parseInt(e.target.value) })} className={inputClasses} title="模型状态">
+                          <option value={1}>启用</option>
+                          <option value={0}>禁用</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1">触发关键词（每行一个，当用户输入含这些词时自动使用此模型）</label>
+                      <textarea
+                        value={editingModel.keyword_triggers ? (() => { try { return JSON.parse(editingModel.keyword_triggers).join("\n") } catch { return editingModel.keyword_triggers } })() : ""}
+                        onChange={(e) => setEditingModel({ ...editingModel, keyword_triggers: JSON.stringify(e.target.value.split("\n").map(s => s.trim()).filter(Boolean)) })}
+                        rows={3} className={`${inputClasses} resize-none`} placeholder="技术&#10;编程&#10;AI" />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button type="button" onClick={() => { setEditingModel(null); setNewModel(false) }}
+                        className="text-sm text-zinc-400 hover:text-white px-3 py-1.5 rounded-lg transition-colors">取消</button>
+                      <button type="button" onClick={handleSaveModel} disabled={saving === "model"}
+                        className="flex items-center gap-1.5 text-sm bg-red-600 text-white px-4 py-1.5 rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50">
+                        <Save size={14} /> {saving === "model" ? "保存中..." : "保存"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {models.length === 0 && <p className="text-zinc-500 text-sm py-8 text-center">暂无模型，点击上方按钮新增</p>}
+                  {models.map((m) => (
+                    <div key={m.id} className="bg-zinc-800/30 rounded-lg border border-zinc-800 p-3 flex items-start justify-between group">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="bg-red-950 text-red-300 font-bold px-2 py-0.5 rounded text-xs border border-red-900/30">{m.name}</span>
+                          <span className="text-xs text-zinc-600">{m.provider}</span>
+                          <span className="text-xs text-zinc-600">| {m.model}</span>
+                          {!m.is_active && <span className="text-xs text-yellow-600">已禁用</span>}
+                        </div>
+                        <p className="text-xs text-zinc-500 truncate">
+                          {m.api_key ? `密钥: ${m.api_key.slice(0, 6)}***` : "使用环境变量密钥"}
+                          {m.keyword_triggers && ` | 触发词: ${(() => { try { return JSON.parse(m.keyword_triggers).join(", ") } catch { return m.keyword_triggers } })()}`}
+                        </p>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                        <button type="button" onClick={() => { setEditingModel(m); setNewModel(false) }}
+                          className="text-xs text-zinc-500 hover:text-red-400 px-2 py-1 rounded transition-colors">编辑</button>
+                        <button type="button" onClick={() => handleDeleteModel(m.id)}
+                          className="text-xs text-zinc-500 hover:text-red-400 px-2 py-1 rounded transition-colors"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ===== 站点设置 (通用 + 内容管理 + 广告 + 支付 + SEO) ===== */}
-            {activeTab !== "changelogs" && activeTab !== "about" && activeTab !== "prompts" && (
+            {activeTab !== "changelogs" && activeTab !== "about" && activeTab !== "prompts" && activeTab !== "models" && (
               <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
                 <h2 className="text-lg font-bold text-white mb-1">{tabs.find((t) => t.id === activeTab)?.label}</h2>
                 <p className="text-zinc-500 text-sm mb-6">

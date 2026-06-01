@@ -13,6 +13,7 @@ const defaultNavLinks: NavLink[] = [
   { label: "图片生成", href: "/image-generator" },
   { label: "原创检测", href: "/originality-check" },
   { label: "使用教程", href: "/tutorials" },
+  { label: "风格实验室", href: "/style-lab" },
   { label: "留言板", href: "/guestbook" },
   { label: "更新日志", href: "/changelog" },
   { label: "关于我们", href: "/about" },

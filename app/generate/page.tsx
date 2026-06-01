@@ -25,8 +25,13 @@ export default function GeneratePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [credits, setCredits] = useState<CreditsInfo | null>(null)
   const [showBuyTip, setShowBuyTip] = useState(false)
+  const [errorMsg, setErrorMsg] = useState("")
+  const [models, setModels] = useState<{ id: number; name: string }[]>([])
 
-  useEffect(() => { fetchCredits() }, [])
+  useEffect(() => {
+    fetchCredits()
+    fetch("/api/models").then(r => r.json()).then(d => setModels(d.models || [])).catch(() => {})
+  }, [])
 
   const fetchCredits = async () => {
     try {
@@ -36,9 +41,9 @@ export default function GeneratePage() {
   }
 
   const handleGenerate = async (params: {
-    keyword: string; domain: string; style: string; wordCount: number
+    keyword: string; domain: string; style: string; wordCount: number; modelId?: number
   }) => {
-    // 检查额度
+    // 客户端预检查（快速拦截，避免无意义的请求）
     if (credits?.paymentEnabled && credits.remaining <= 0) {
       setShowBuyTip(true)
       return
@@ -47,24 +52,42 @@ export default function GeneratePage() {
     setIsLoading(true)
     setContent("")
     setShowBuyTip(false)
+    setErrorMsg("")
+
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
+        body: JSON.stringify({ ...params, modelId: params.modelId }),
       })
       const data = await res.json()
+
+      if (res.status === 402) {
+        // 额度用完 → 显示购买引导
+        setShowBuyTip(true)
+        setCredits(data.credits || { paymentEnabled: true, total: credits?.total || 3, used: credits?.total || 3, remaining: 0 })
+        return
+      }
+
+      if (!res.ok) {
+        setErrorMsg(data.error || "生成失败，请稍后重试")
+        return
+      }
+
       if (data.content) {
         setContent(data.content)
-        // 生成成功后记录使用
-        fetch("/api/credits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate" }) })
-          .then(() => fetchCredits())
       } else {
-        setContent("生成失败，请稍后重试")
+        setErrorMsg("AI 返回为空，请换个关键词试试")
+      }
+
+      // 服务端已扣积分，直接刷新本地状态
+      if (data.credits) {
+        setCredits(data.credits)
+      } else {
+        fetchCredits()
       }
     } catch {
-      const { generateMockArticle } = await import("@/lib/mock-ai")
-      setContent(generateMockArticle(params))
+      setErrorMsg("网络连接失败，请检查网络后重试")
     } finally {
       setIsLoading(false)
     }
@@ -118,9 +141,15 @@ export default function GeneratePage() {
                   </Link>
                 </div>
               )}
+
+              {errorMsg && (
+                <div className="mt-3 bg-yellow-950/30 border border-yellow-900/30 rounded-lg p-3">
+                  <span className="text-sm text-yellow-300">{errorMsg}</span>
+                </div>
+              )}
             </div>
 
-            <ArticleForm onGenerate={handleGenerate} isLoading={isLoading} />
+            <ArticleForm onGenerate={handleGenerate} isLoading={isLoading} models={models} />
 
             {isLoading && (
               <div className="mt-6 bg-zinc-900/50 rounded-xl border border-zinc-800 p-12 text-center">

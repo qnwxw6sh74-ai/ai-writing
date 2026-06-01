@@ -88,26 +88,28 @@ export async function chatCompletion(
   }
 }
 
-/** 快速生成文章 */
+/** 快速生成文章（可选传入 model overrides 切换模型） */
 export async function generateArticle(
   systemPrompt: string,
-  userPrompt: string
+  userPrompt: string,
+  modelOverrides?: Partial<AIConfig>
 ): Promise<string | null> {
   return chatCompletion([
     { role: "system", content: systemPrompt },
     { role: "user", content: userPrompt },
-  ])
+  ], modelOverrides)
 }
 
-/** 快速生成标题 */
+/** 快速生成标题（可选传入 model overrides 切换模型） */
 export async function generateTitles(
   systemPrompt: string,
-  userPrompt: string
+  userPrompt: string,
+  modelOverrides?: Partial<AIConfig>
 ): Promise<string[]> {
   const text = await chatCompletion([
     { role: "system", content: systemPrompt },
     { role: "user", content: `${userPrompt}\n\n请直接返回5个标题，每行一个，不要编号。` },
-  ])
+  ], modelOverrides)
   if (!text) return []
   return text.split("\n").filter((t: string) => t.trim()).slice(0, 5)
 }

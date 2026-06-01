@@ -21,6 +21,7 @@ export function TitleGenerator() {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const [credits, setCredits] = useState<CreditsInfo | null>(null)
   const [showBuyTip, setShowBuyTip] = useState(false)
+  const [errorMsg, setErrorMsg] = useState("")
 
   useEffect(() => { fetchCredits() }, [])
 
@@ -35,7 +36,7 @@ export function TitleGenerator() {
     e.preventDefault()
     if (!keyword.trim()) return
 
-    // 检查额度
+    // 客户端预检查
     if (credits?.paymentEnabled && credits.remaining <= 0) {
       setShowBuyTip(true)
       return
@@ -43,6 +44,8 @@ export function TitleGenerator() {
 
     setIsLoading(true)
     setShowBuyTip(false)
+    setErrorMsg("")
+
     try {
       const res = await fetch("/api/title", {
         method: "POST",
@@ -50,16 +53,28 @@ export function TitleGenerator() {
         body: JSON.stringify({ keyword: keyword.trim(), domain }),
       })
       const data = await res.json()
+
+      if (res.status === 402) {
+        setShowBuyTip(true)
+        setCredits(data.credits || { paymentEnabled: true, total: credits?.total || 3, used: credits?.total || 3, remaining: 0 })
+        return
+      }
+
+      if (!res.ok) {
+        setErrorMsg(data.error || "生成失败")
+        return
+      }
+
       setTitles(data.titles || [])
-      // 生成成功后记录使用
-      if (data.titles?.length) {
-        fetch("/api/credits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "title" }) })
-          .then(() => fetchCredits())
+
+      // 服务端已扣积分，直接刷新
+      if (data.credits) {
+        setCredits(data.credits)
+      } else {
+        fetchCredits()
       }
     } catch {
-      import("@/lib/mock-ai").then((m) => {
-        setTitles(m.generateMockTitles({ keyword: keyword.trim(), domain }))
-      })
+      setErrorMsg("网络连接失败，请检查网络后重试")
     } finally {
       setIsLoading(false)
     }
@@ -91,6 +106,12 @@ export function TitleGenerator() {
           <Link href="/pricing" className="text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-500 transition-colors shrink-0">
             查看套餐
           </Link>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="mb-4 bg-yellow-950/30 border border-yellow-900/30 rounded-lg p-3">
+          <span className="text-sm text-yellow-300">{errorMsg}</span>
         </div>
       )}
 

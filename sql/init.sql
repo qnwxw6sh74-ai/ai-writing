@@ -224,3 +224,23 @@ CREATE TABLE IF NOT EXISTS generate_history (
     user_identifier VARCHAR(100),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- AI 模型配置（多模型管理）
+CREATE TABLE IF NOT EXISTS ai_models (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL COMMENT '显示名称',
+    provider VARCHAR(50) NOT NULL COMMENT 'deepseek|openai|claude|custom',
+    api_key VARCHAR(500) NOT NULL DEFAULT '',
+    base_url VARCHAR(500) NOT NULL DEFAULT '' COMMENT 'API 地址，留空用 provider 默认',
+    model VARCHAR(100) NOT NULL COMMENT '模型标识，如 deepseek-chat',
+    max_tokens INT DEFAULT 4096,
+    temperature DECIMAL(3,2) DEFAULT 0.70,
+    is_active TINYINT(1) DEFAULT 1,
+    keyword_triggers TEXT COMMENT '触发关键词 JSON 数组',
+    sort_order INT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO ai_models (id, name, provider, model, is_active, sort_order) VALUES
+(1, '默认模型', 'deepseek', 'deepseek-chat', 1, 0);
