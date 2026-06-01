@@ -1,0 +1,67 @@
+import pool from "@/lib/db"
+
+/**
+ * 查询付费功能是否启用（读取 site_config 中 enable_payment）
+ */
+export async function getPaymentEnabled(): Promise<boolean> {
+  try {
+    const val = await getConfig("enable_payment", "true")
+    return val === "true"
+  } catch {
+    return true // DB 不可用时默认启用以避免阻塞收入
+  }
+}
+
+/**
+ * 获取免费使用次数（优先 DB 配置，回退环境变量）
+ */
+export async function getFreeCredits(): Promise<number> {
+  try {
+    const val = await getConfig("free_credits", "")
+    if (val) return parseInt(String(val)) || 3
+  } catch { /* ignore */ }
+  return parseInt(process.env.FREE_CREDITS || "3")
+}
+
+/**
+ * 从 site_config 表读取配置值，数据库不可用或 key 不存在时返回 fallback
+ */
+export async function getConfig<T = string>(key: string, fallback: T): Promise<T> {
+  try {
+    const [rows] = await pool.execute(
+      "SELECT `value` FROM site_config WHERE `key` = ?",
+      [key]
+    ) as any[]
+    if (rows.length > 0 && rows[0].value) {
+      // JSON 类型的值尝试解析，text 类型直接返回
+      try {
+        return JSON.parse(rows[0].value) as T
+      } catch {
+        return rows[0].value as T
+      }
+    }
+  } catch { /* DB 不可用 */ }
+  return fallback
+}
+
+/**
+ * 读取多个配置项，返回 key→value 映射
+ */
+export async function getConfigs(keys: string[]): Promise<Record<string, any>> {
+  const result: Record<string, any> = {}
+  for (const key of keys) {
+    result[key] = null
+  }
+  try {
+    const [rows] = await pool.execute(
+      `SELECT \`key\`, \`value\` FROM site_config WHERE \`key\` IN (${keys.map(() => "?").join(",")})`,
+      keys
+    ) as any[]
+    for (const row of rows) {
+      if (row.value) {
+        try { result[row.key] = JSON.parse(row.value) } catch { result[row.key] = row.value }
+      }
+    }
+  } catch { /* DB 不可用 */ }
+  return result
+}
