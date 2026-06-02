@@ -40,7 +40,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // ========== 用户 API 保护 ==========
-  const needsUserApi = USER_API_ROUTES.some(r => pathname.startsWith(r))
+  // 回调路由豁免 — V免签是服务器到服务器调用，无用户 cookie
+  const isCallback = pathname === "/api/payment/callback"
+  const needsUserApi = USER_API_ROUTES.some(r => pathname.startsWith(r)) && !isCallback
   if (needsUserApi) {
     const token = request.cookies.get("user_token")?.value
     if (!token) {
