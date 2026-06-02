@@ -10,6 +10,7 @@ interface CreditsInfo {
   total: number
   used: number
   remaining: number
+  purchasedCredits: number
 }
 
 const quickLinks = [
@@ -126,9 +127,12 @@ export default function GeneratePage() {
                 </div>
                 {credits?.paymentEnabled && (
                   <div className="text-right">
-                    <span className="text-xs text-zinc-500">免费额度</span>
+                    <span className="text-xs text-zinc-500">
+                      可用额度
+                      {credits.purchasedCredits > 0 && ` (含付费 ${credits.purchasedCredits} 次)`}
+                    </span>
                     <div className={`text-lg font-bold ${credits.remaining > 0 ? "text-red-400" : "text-zinc-500"}`}>
-                      {credits.remaining} / {credits.total}
+                      {credits.remaining} / {credits.total + credits.purchasedCredits}
                     </div>
                   </div>
                 )}

@@ -6,11 +6,22 @@ import crypto from 'crypto'
 const PHP_API_BASE = process.env.PHP_API_BASE || 'http://localhost:8080'
 const PHP_API_KEY = process.env.PHP_API_KEY || ''
 
+/** 本站域名，用于构造 V免签回调地址 */
+export function getSiteUrl(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+}
+
+/** V免签异步通知地址 */
+export function getNotifyUrl(): string {
+  return `${getSiteUrl()}/api/payment/callback`
+}
+
 interface CreateOrderParams {
   price: number
   type: 1 | 2 // 1=微信, 2=支付宝
   param?: string
   isHtml?: 0 | 1
+  notifyUrl?: string
 }
 
 interface CreateOrderResult {
@@ -34,6 +45,17 @@ function sign(payId: string, param: string, type: number, price: number): string
   return crypto.createHash('md5').update(raw).digest('hex')
 }
 
+/** 验证 V免签回调签名 */
+export function verifySign(
+  payId: string, param: string, type: string | number,
+  price: string | number, incomingSign: string
+): boolean {
+  const expected = sign(
+    String(payId), String(param), Number(type), Number(price)
+  )
+  return expected === incomingSign
+}
+
 export async function createOrder(params: CreateOrderParams): Promise<CreateOrderResult> {
   const payId = Date.now().toString()
   const param = params.param || 'ai_writing'
@@ -50,6 +72,10 @@ export async function createOrder(params: CreateOrderParams): Promise<CreateOrde
   url.searchParams.set('sign', signStr)
   url.searchParams.set('param', param)
   url.searchParams.set('isHtml', isHtml.toString())
+  // 传入回调地址，V免签 PHP 收到款项后主动通知本站
+  if (params.notifyUrl) {
+    url.searchParams.set('notifyUrl', params.notifyUrl)
+  }
 
   try {
     const response = await fetch(url.toString())

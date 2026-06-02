@@ -9,33 +9,46 @@ function getUserIdentifier(request: NextRequest): string {
     || "127.0.0.1"
 }
 
-// GET — 查询剩余免费次数
+// GET — 查询剩余额度（免费 + 付费）
 export async function GET(request: NextRequest) {
   try {
     const paymentEnabled = await getPaymentEnabled()
     if (!paymentEnabled) {
-      return NextResponse.json({ paymentEnabled: false, remaining: Infinity, total: Infinity, used: 0 })
+      return NextResponse.json({ paymentEnabled: false, remaining: Infinity, total: Infinity, used: 0, purchasedCredits: 0 })
     }
 
     const freeCredits = await getFreeCredits()
     const userId = getUserIdentifier(request)
 
-    const [rows] = await pool.execute(
+    // 已使用次数
+    const [usedRows] = await pool.execute(
       "SELECT COUNT(*) AS used FROM credits_log WHERE user_identifier = ?",
       [userId]
     ) as any[]
+    const used = usedRows[0]?.used || 0
 
-    const used = rows[0]?.used || 0
-    const remaining = Math.max(0, freeCredits - used)
+    // 付费购买的额度
+    let purchasedCredits = 0
+    try {
+      const [rechargeRows] = await pool.execute(
+        "SELECT COALESCE(SUM(credits_added), 0) AS total FROM credits_recharge WHERE user_identifier = ?",
+        [userId]
+      ) as any[]
+      purchasedCredits = rechargeRows[0]?.total || 0
+    } catch { /* credits_recharge 表可能尚未创建 */ }
+
+    const totalCredits = freeCredits + purchasedCredits
+    const remaining = Math.max(0, totalCredits - used)
 
     return NextResponse.json({
       paymentEnabled: true,
       total: freeCredits,
       used,
       remaining,
+      purchasedCredits,
     })
   } catch {
-    return NextResponse.json({ paymentEnabled: false, remaining: Infinity, total: Infinity, used: 0 })
+    return NextResponse.json({ paymentEnabled: false, remaining: Infinity, total: Infinity, used: 0, purchasedCredits: 0 })
   }
 }
 

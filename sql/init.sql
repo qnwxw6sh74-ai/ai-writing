@@ -244,3 +244,29 @@ CREATE TABLE IF NOT EXISTS ai_models (
 
 INSERT IGNORE INTO ai_models (id, name, provider, model, is_active, sort_order) VALUES
 (1, '默认模型', 'deepseek', 'deepseek-chat', 1, 0);
+
+-- 支付订单表（V免签支付追踪）
+CREATE TABLE IF NOT EXISTS payment_orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    pay_id VARCHAR(100) NOT NULL UNIQUE COMMENT 'V免签返回的订单号',
+    user_identifier VARCHAR(100) NOT NULL COMMENT '用户IP标识',
+    plan_id INT COMMENT '关联套餐ID',
+    price DECIMAL(10,2) COMMENT '支付金额',
+    credits_to_add INT NOT NULL DEFAULT 0 COMMENT '购买额度',
+    status ENUM('pending','paid','closed') DEFAULT 'pending',
+    pay_type TINYINT COMMENT '1=微信 2=支付宝',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    paid_at DATETIME COMMENT '支付到账时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 充值记录表（付费额度入账）
+CREATE TABLE IF NOT EXISTS credits_recharge (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_identifier VARCHAR(100) NOT NULL COMMENT '用户IP标识',
+    credits_added INT NOT NULL COMMENT '充值次数',
+    price DECIMAL(10,2) COMMENT '支付金额',
+    plan_id INT COMMENT '关联套餐ID',
+    pay_id VARCHAR(100) COMMENT '关联支付订单号',
+    source VARCHAR(50) DEFAULT 'vmq' COMMENT '充值来源 vmq|manual|admin',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

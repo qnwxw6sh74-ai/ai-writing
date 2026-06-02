@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Check, QrCode, Wallet2 } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Check, QrCode, Wallet2, Loader2 } from "lucide-react"
 
 interface PricingPlan {
   id: number
@@ -13,17 +13,72 @@ interface PricingPlan {
   sort_order: number
 }
 
+const POLL_INTERVAL = 3000 // 3秒轮询一次
+const POLL_MAX = 30 // 最多轮询30次（90秒）
+
 export function PricingClient({ plans }: { plans: PricingPlan[] }) {
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null)
   const [payType, setPayType] = useState<number>(0)
-  const [orderResult, setOrderResult] = useState<{ orderId?: string; payUrl?: string; qrcodeUrl?: string; message?: string } | null>(null)
+  const [orderResult, setOrderResult] = useState<{
+    orderId?: string; payUrl?: string; qrcodeUrl?: string; message?: string
+    paid?: boolean; creditsAdded?: number
+  } | null>(null)
   const [isPaying, setIsPaying] = useState(false)
+  const [isPolling, setIsPolling] = useState(false)
+  const [pollTimedOut, setPollTimedOut] = useState(false)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // 清理轮询定时器
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [])
+
+  const startPolling = (payId: string) => {
+    setIsPolling(true)
+    setPollTimedOut(false)
+    let count = 0
+
+    pollRef.current = setInterval(async () => {
+      count++
+      try {
+        const res = await fetch(`/api/payment/check?payId=${payId}`)
+        const data = await res.json()
+
+        if (data.paid) {
+          // 支付成功！
+          if (pollRef.current) clearInterval(pollRef.current)
+          setIsPolling(false)
+          setOrderResult(prev => ({
+            ...prev,
+            paid: true,
+            creditsAdded: data.creditsAdded,
+            message: "✅ 支付成功，额度已到账！",
+          }))
+          return
+        }
+
+        if (count >= POLL_MAX) {
+          // 超时停止
+          if (pollRef.current) clearInterval(pollRef.current)
+          setIsPolling(false)
+          setPollTimedOut(true)
+          return
+        }
+      } catch {
+        // 网络错误，继续重试
+      }
+    }, POLL_INTERVAL)
+  }
 
   const handlePay = async (plan: PricingPlan, type: 1 | 2) => {
     setIsPaying(true)
     setSelectedPlan(plan)
     setPayType(type)
     setOrderResult(null)
+    setIsPolling(false)
+    setPollTimedOut(false)
 
     try {
       const res = await fetch("/api/payment/create", {
@@ -37,6 +92,11 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
       // 如果有支付链接，新窗口打开
       if (data.payUrl) {
         window.open(data.payUrl, "_blank")
+      }
+
+      // 启动轮询
+      if (data.orderId) {
+        startPolling(data.orderId)
       }
     } catch {
       setOrderResult({ message: "支付服务暂不可用，请稍后重试" })
@@ -117,17 +177,42 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
 
         {/* 支付结果提示 */}
         {orderResult && (
-          <div className={`mt-6 p-4 rounded-lg text-center text-sm ${orderResult.orderId ? "bg-red-950/30 border border-red-900/30 text-red-300" : "bg-yellow-950/30 border border-yellow-900/30 text-yellow-300"}`}>
-            {orderResult.orderId ? (
+          <div className={`mt-6 p-4 rounded-lg text-center text-sm ${
+            orderResult.paid
+              ? "bg-green-950/30 border border-green-900/30 text-green-300"
+              : "bg-red-950/30 border border-red-900/30 text-red-300"
+          }`}>
+            {orderResult.orderId && !orderResult.paid && !pollTimedOut && (
               <>
-                <p className="font-bold mb-1">订单已创建</p>
+                <p className="font-bold mb-2 flex items-center justify-center gap-2">
+                  <Loader2 size={16} className="animate-spin" />
+                  等待支付中...
+                </p>
                 <p className="text-zinc-400">订单号：{orderResult.orderId}</p>
                 {orderResult.qrcodeUrl && (
                   <img src={orderResult.qrcodeUrl} alt="支付二维码" className="mx-auto mt-3 rounded-lg max-w-[200px]" />
                 )}
-                <p className="text-zinc-500 mt-2">请在新打开的窗口中完成支付</p>
+                <p className="text-zinc-500 mt-2">请在新窗口扫码完成支付，支付成功后自动到账</p>
               </>
-            ) : (
+            )}
+            {orderResult.paid && (
+              <>
+                <p className="font-bold text-lg mb-1">✅ 支付成功</p>
+                <p className="text-zinc-400">
+                  {orderResult.creditsAdded ? `${orderResult.creditsAdded} 次额度已到账` : "额度已到账"}
+                </p>
+                <a href="/generate" className="inline-block mt-3 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-500 transition-colors">
+                  开始创作
+                </a>
+              </>
+            )}
+            {pollTimedOut && (
+              <>
+                <p className="font-bold mb-1">⏰ 等待超时</p>
+                <p className="text-zinc-400">如已完成支付，请稍后刷新页面，额度会自动到账</p>
+              </>
+            )}
+            {!orderResult.orderId && !orderResult.paid && (
               <p>{orderResult.message || "支付失败"}</p>
             )}
           </div>
