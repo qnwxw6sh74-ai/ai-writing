@@ -5,10 +5,15 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || process.env.ADMIN_PASSWORD || "ai-writing-secret-key-change-me"
 )
 
+/** 需要用户登录的 API 路由 */
+const USER_API_ROUTES = ["/api/payment/", "/api/style/"]
+/** 需要用户登录的页面路由 */
+const USER_PAGE_ROUTES = ["/style-lab", "/pricing", "/profile"]
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // 保护管理后台 API 和页面
+  // ========== 管理员 API 保护 ==========
   if (pathname.startsWith("/api/admin/") && !pathname.startsWith("/api/admin/login")) {
     const token = request.cookies.get("admin_token")?.value
     if (!token) {
@@ -21,7 +26,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 保护管理后台页面
+  // ========== 管理员页面保护 ==========
   if (pathname.startsWith("/admin/") && !pathname.startsWith("/admin/login")) {
     const token = request.cookies.get("admin_token")?.value
     if (!token) {
@@ -34,9 +39,69 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // ========== 用户 API 保护 ==========
+  const needsUserApi = USER_API_ROUTES.some(r => pathname.startsWith(r))
+  if (needsUserApi) {
+    const token = request.cookies.get("user_token")?.value
+    if (!token) {
+      return NextResponse.json({ error: "请先登录" }, { status: 401 })
+    }
+    try {
+      const { payload } = await jwtVerify(token, JWT_SECRET)
+      // 将用户信息注入 header，下游路由直接使用
+      const headers = new Headers(request.headers)
+      headers.set("x-user-payload", JSON.stringify(payload))
+      return NextResponse.next({ request: { headers } })
+    } catch {
+      return NextResponse.json({ error: "登录已过期，请重新登录" }, { status: 401 })
+    }
+  }
+
+  // ========== 用户页面保护 ==========
+  const needsUserPage = USER_PAGE_ROUTES.some(r => pathname === r || pathname.startsWith(r + "/"))
+  if (needsUserPage) {
+    const token = request.cookies.get("user_token")?.value
+    if (!token) {
+      const loginUrl = new URL("/login", request.url)
+      loginUrl.searchParams.set("redirect", pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+    try {
+      const { payload } = await jwtVerify(token, JWT_SECRET)
+      const headers = new Headers(request.headers)
+      headers.set("x-user-payload", JSON.stringify(payload))
+      return NextResponse.next({ request: { headers } })
+    } catch {
+      const loginUrl = new URL("/login", request.url)
+      loginUrl.searchParams.set("redirect", pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+  }
+
+  // ========== 非保护路由也尝试注入用户信息 ==========
+  const token = request.cookies.get("user_token")?.value
+  if (token) {
+    try {
+      const { payload } = await jwtVerify(token, JWT_SECRET)
+      const headers = new Headers(request.headers)
+      headers.set("x-user-payload", JSON.stringify(payload))
+      return NextResponse.next({ request: { headers } })
+    } catch { /* token 失效，忽略 */ }
+  }
+
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ["/api/admin/:path*", "/admin/:path*"],
+  matcher: [
+    "/api/admin/:path*",
+    "/api/payment/:path*",
+    "/api/style/:path*",
+    "/admin/:path*",
+    "/style-lab",
+    "/style-lab/:path*",
+    "/pricing",
+    "/profile",
+    "/profile/:path*",
+  ],
 }

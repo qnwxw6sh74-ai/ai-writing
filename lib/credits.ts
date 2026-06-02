@@ -17,6 +17,24 @@ export function getUserIdentifier(
     || "127.0.0.1"
 }
 
+/**
+ * 解析用户标识：登录用户用 user_id，未登录用 IP
+ * 优先读取中间件注入的 x-user-payload header
+ */
+export function resolveUserId(
+  xUserPayload: string | null,
+  xForwardedFor: string | null,
+  xRealIp: string | null
+): string {
+  if (xUserPayload) {
+    try {
+      const payload = JSON.parse(xUserPayload)
+      if (payload.userId) return String(payload.userId)
+    } catch { /* ignore */ }
+  }
+  return getUserIdentifier(xForwardedFor, xRealIp)
+}
+
 export interface CreditsResult {
   /** 是否允许继续生成 */
   allowed: boolean

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateMockArticle } from "@/lib/mock-ai"
 import { generateArticle } from "@/lib/ai-client"
-import { checkCredits, deductCredits, getUserIdentifier } from "@/lib/credits"
+import { checkCredits, deductCredits, resolveUserId } from "@/lib/credits"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
 import pool from "@/lib/db"
 
@@ -13,8 +13,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "关键词不能为空" }, { status: 400 })
     }
 
-    // === 服务端积分检查 ===
-    const userId = getUserIdentifier(
+    // === 服务端积分检查（登录用户用 user_id，未登录用 IP）===
+    const userId = resolveUserId(
+      request.headers.get("x-user-payload"),
       request.headers.get("x-forwarded-for"),
       request.headers.get("x-real-ip")
     )

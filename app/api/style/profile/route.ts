@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import pool from "@/lib/db"
-import { getUserIdentifier } from "@/lib/credits"
+import { resolveUserId } from "@/lib/credits"
 
 /**
  * GET — 获取当前用户的风格档案
  */
 export async function GET(request: NextRequest) {
   try {
-    const userId = getUserIdentifier(
+    const userId = resolveUserId(
+      request.headers.get("x-user-payload"),
       request.headers.get("x-forwarded-for"),
       request.headers.get("x-real-ip")
     )
@@ -32,7 +33,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const userId = getUserIdentifier(
+    const userId = resolveUserId(
+      request.headers.get("x-user-payload"),
       request.headers.get("x-forwarded-for"),
       request.headers.get("x-real-ip")
     )
@@ -60,7 +62,8 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const userId = getUserIdentifier(
+    const userId = resolveUserId(
+      request.headers.get("x-user-payload"),
       request.headers.get("x-forwarded-for"),
       request.headers.get("x-real-ip")
     )

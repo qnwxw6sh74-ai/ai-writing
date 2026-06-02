@@ -28,6 +28,15 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
   const [pollTimedOut, setPollTimedOut] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // 支付回跳检测
+  useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('paid') === '1') {
+      setOrderResult({ paid: true, message: '✅ 支付成功，额度已到账！' })
+      // 清除 URL 参数
+      window.history.replaceState({}, '', '/pricing')
+    }
+  }, [])
+
   // 清理轮询定时器
   useEffect(() => {
     return () => {

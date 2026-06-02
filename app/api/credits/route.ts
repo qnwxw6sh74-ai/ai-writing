@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import pool from "@/lib/db"
 import { getPaymentEnabled, getFreeCredits } from "@/lib/config"
+import { resolveUserId } from "@/lib/credits"
 
-/** 根据 IP 获取用户标识 */
+/** 获取用户标识：登录用 user_id，未登录用 IP */
 function getUserIdentifier(request: NextRequest): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || request.headers.get("x-real-ip")
-    || "127.0.0.1"
+  return resolveUserId(
+    request.headers.get("x-user-payload"),
+    request.headers.get("x-forwarded-for"),
+    request.headers.get("x-real-ip")
+  )
 }
 
 // GET — 查询剩余额度（免费 + 付费）

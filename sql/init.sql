@@ -270,3 +270,25 @@ CREATE TABLE IF NOT EXISTS credits_recharge (
     source VARCHAR(50) DEFAULT 'vmq' COMMENT '充值来源 vmq|manual|admin',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 用户表（注册登录 + 邮箱验证）
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    nickname VARCHAR(100),
+    email_verified TINYINT(1) DEFAULT 0,
+    verification_token VARCHAR(64),
+    verification_sent_at DATETIME,
+    bio TEXT COMMENT '个人简介',
+    favorite_keywords TEXT COMMENT '常用关键词 JSON数组',
+    preferred_style VARCHAR(50) COMMENT '偏好文章风格',
+    total_generations INT DEFAULT 0 COMMENT '总生成次数',
+    total_exports INT DEFAULT 0 COMMENT '总导出次数',
+    last_export_format VARCHAR(10) COMMENT '最近导出格式',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_login_at DATETIME,
+    INDEX idx_email (email),
+    INDEX idx_verification_token (verification_token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

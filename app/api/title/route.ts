@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateMockTitles } from "@/lib/mock-ai"
 import { generateTitles } from "@/lib/ai-client"
-import { checkCredits, deductCredits, getUserIdentifier } from "@/lib/credits"
+import { checkCredits, deductCredits, resolveUserId } from "@/lib/credits"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
 import pool from "@/lib/db"
 
@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
     }
 
     // === 服务端积分检查 ===
-    const userId = getUserIdentifier(
+    const userId = resolveUserId(
+      request.headers.get("x-user-payload"),
       request.headers.get("x-forwarded-for"),
       request.headers.get("x-real-ip")
     )

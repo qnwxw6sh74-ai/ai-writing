@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createOrder, getNotifyUrl } from "@/lib/payment"
+import { createOrder, getNotifyUrl, getSiteUrl } from "@/lib/payment"
 import pool from "@/lib/db"
 
 /** 根据 IP 获取用户标识 */
@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       type: type as 1 | 2,
       param: `plan_${planId || 0}`,
       notifyUrl: getNotifyUrl(),
+      returnUrl: `${getSiteUrl()}/pricing?paid=1`,
     })
 
     // 订单信息写入本地数据库

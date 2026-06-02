@@ -23,6 +23,7 @@ interface CreateOrderParams {
   type: 1 | 2 // 1=微信, 2=支付宝
   param?: string
   notifyUrl?: string
+  returnUrl?: string
 }
 
 export interface CreateOrderResult {
@@ -86,6 +87,9 @@ export async function createOrder(params: CreateOrderParams): Promise<CreateOrde
   url.searchParams.set('isHtml', '0') // 返回JSON，不走V免签页面跳转
   if (params.notifyUrl) {
     url.searchParams.set('notifyUrl', params.notifyUrl)
+  }
+  if (params.returnUrl) {
+    url.searchParams.set('returnUrl', params.returnUrl)
   }
 
   try {
