@@ -29,19 +29,18 @@ export async function POST(request: NextRequest) {
       if (planRows.length > 0) {
         creditsToAdd = planRows[0].credits || 0
       }
-    } catch { /* DB 不可用，creditsToAdd 保持 0 */ }
+    } catch { /* DB 不可用 */ }
 
-    // 先创建 V免签订单（拿到 payId）
+    // 创建 V免签订单
     const result = await createOrder({
       price,
       type: type as 1 | 2,
       param: `plan_${planId || 0}`,
-      isHtml: 0,
       notifyUrl: getNotifyUrl(),
     })
 
     // 订单信息写入本地数据库
-    if (result.orderId) {
+    if (result.orderId && result.success) {
       try {
         await pool.execute(
           `INSERT INTO payment_orders (pay_id, user_identifier, plan_id, price, credits_to_add, status, pay_type)

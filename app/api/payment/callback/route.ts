@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { verifySign } from "@/lib/payment"
+import { verifyCallbackSign } from "@/lib/payment"
 import pool from "@/lib/db"
 
 /**
  * GET /api/payment/callback
  * V免签 PHP 异步回调 — 检测到支付后主动通知本站
  *
- * 参数（由 V免签 PHP 拼接）：
- *   payId, param, type, price, sign
+ * 回调参数：payId, param, type, price, reallyPrice, sign
+ * 签名公式：md5(payId + param + type + price + reallyPrice + 通讯密钥)
  *
- * 校验签名通过后 → 更新订单状态 + 写入充值记录
  * 返回纯文本 "success" / "fail"（V免签协议要求）
  */
 export async function GET(request: NextRequest) {
@@ -18,20 +17,21 @@ export async function GET(request: NextRequest) {
   const param = searchParams.get("param") || ""
   const type = searchParams.get("type") || "1"
   const price = searchParams.get("price") || "0"
+  const reallyPrice = searchParams.get("reallyPrice") || price
   const sign = searchParams.get("sign") || ""
 
   if (!payId) {
     return new NextResponse("fail", { status: 400 })
   }
 
-  // 1. 验证签名
-  if (!verifySign(payId, param, type, price, sign)) {
-    console.warn("V免签回调签名验证失败:", { payId, param, type, price, sign })
+  // 1. 验证签名（回调签名含 reallyPrice）
+  if (!verifyCallbackSign(payId, param, type, price, reallyPrice, sign)) {
+    console.warn("V免签回调签名验证失败:", { payId, param, type, price, reallyPrice, sign })
     return new NextResponse("fail", { status: 403 })
   }
 
   try {
-    // 2. 查询本地订单
+    // 2. 查询本地订单（用 payId 匹配 V免签的云端 orderId）
     const [orderRows] = await pool.execute(
       "SELECT id, user_identifier, plan_id, credits_to_add, price, status FROM payment_orders WHERE pay_id = ?",
       [payId]
@@ -39,11 +39,9 @@ export async function GET(request: NextRequest) {
 
     const order = orderRows[0]
 
-    // 3. 更新订单状态
     if (order) {
       if (order.status === "paid") {
-        // 已处理过，幂等返回 success
-        return new NextResponse("success")
+        return new NextResponse("success") // 幂等
       }
 
       await pool.execute(
@@ -52,7 +50,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 4. 写入充值记录（防重复）
+    // 3. 写入充值记录（防重复）
     const creditsToAdd = order?.credits_to_add || 0
     const userId = order?.user_identifier || param || "callback_unknown"
     const orderPrice = order?.price || parseFloat(price) || 0
@@ -70,9 +68,6 @@ export async function GET(request: NextRequest) {
           [userId, creditsToAdd, orderPrice, planId, payId]
         )
       }
-    } else if (!order && creditsToAdd === 0) {
-      // 本地无订单记录（可能是直接通过 V免签创建的订单），记录日志但不加额度
-      console.warn("V免签回调: 本地无匹配订单", { payId, param, price })
     }
 
     return new NextResponse("success")

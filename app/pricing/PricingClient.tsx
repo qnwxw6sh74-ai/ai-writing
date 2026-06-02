@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Check, QrCode, Wallet2, Loader2 } from "lucide-react"
+import { Check, QrCode, Loader2 } from "lucide-react"
 
 interface PricingPlan {
   id: number
@@ -20,7 +20,7 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null)
   const [payType, setPayType] = useState<number>(0)
   const [orderResult, setOrderResult] = useState<{
-    orderId?: string; payUrl?: string; qrcodeUrl?: string; message?: string
+    orderId?: string; payPageUrl?: string; payUrl?: string; qrcodeUrl?: string; message?: string
     paid?: boolean; creditsAdded?: number
   } | null>(null)
   const [isPaying, setIsPaying] = useState(false)
@@ -89,9 +89,9 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
       const data = await res.json()
       setOrderResult(data)
 
-      // 如果有支付链接，新窗口打开
-      if (data.payUrl) {
-        window.open(data.payUrl, "_blank")
+      // 打开 V免签支付页面（含二维码）
+      if (data.payPageUrl) {
+        window.open(data.payPageUrl, "_blank")
       }
 
       // 启动轮询

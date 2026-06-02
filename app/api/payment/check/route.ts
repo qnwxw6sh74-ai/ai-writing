@@ -4,13 +4,15 @@ import pool from "@/lib/db"
 
 /**
  * GET /api/payment/check?payId=xxx
- * 查询支付状态，如果已支付则自动充值
- * 前端轮询此接口，支付成功后额度自动到账
+ * 前端轮询此接口，支付成功时自动充值
+ * payId 参数对应 V免签的云端 orderId
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const payId = searchParams.get("payId")
+    const orderId = searchParams.get("payId")
+    // 兼容旧参数名
+    const payId = orderId || ""
 
     if (!payId) {
       return NextResponse.json({ error: "缺少订单号" }, { status: 400 })
@@ -20,19 +22,17 @@ export async function GET(request: NextRequest) {
     let localOrder: any = null
     try {
       const [rows] = await pool.execute(
-        `SELECT id, pay_id, user_identifier, plan_id, credits_to_add, price, status, pay_type
-         FROM payment_orders WHERE pay_id = ?`,
+        "SELECT id, pay_id, user_identifier, plan_id, credits_to_add, price, status FROM payment_orders WHERE pay_id = ?",
         [payId]
       ) as any[]
       localOrder = rows[0] || null
     } catch { /* DB 不可用 */ }
 
-    // 本地已标记为 paid，直接返回
+    // 本地已标记为 paid
     if (localOrder?.status === "paid") {
       return NextResponse.json({
         success: true,
         paid: true,
-        state: 0,
         creditsAdded: localOrder.credits_to_add,
         message: "支付成功，额度已到账",
       })
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     const result = await checkOrder(payId)
 
     // 支付成功 → 自动充值
-    if (result.success && result.state === 0) {
+    if (result.paid) {
       // 1. 更新订单状态
       if (localOrder) {
         try {
@@ -53,15 +53,14 @@ export async function GET(request: NextRequest) {
         } catch { /* ignore */ }
       }
 
-      // 2. 写入充值记录（加额度）
+      // 2. 写入充值记录（防重复）
       const userId = localOrder?.user_identifier || "unknown"
       const creditsToAdd = localOrder?.credits_to_add || 0
-      const price = localOrder?.price || result.price || 0
+      const price = localOrder?.price || 0
       const planId = localOrder?.plan_id || null
 
       if (creditsToAdd > 0) {
         try {
-          // 防止重复充值：同一 payId 只充一次
           const [existing] = await pool.execute(
             "SELECT id FROM credits_recharge WHERE pay_id = ?",
             [payId]
@@ -79,21 +78,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         paid: true,
-        state: 0,
         creditsAdded: creditsToAdd,
         message: "支付成功，额度已到账",
       })
     }
 
-    // 未支付或已关闭
+    // 未支付
     return NextResponse.json({
-      success: result.success,
+      success: true,
       paid: false,
-      state: result.state,
-      message: result.state === 1 ? "订单已关闭" : "等待支付",
+      message: result.msg || "等待支付",
     })
   } catch (error) {
     console.error("Payment check error:", error)
-    return NextResponse.json({ success: false, paid: false, state: -1 }, { status: 500 })
+    return NextResponse.json({ success: false, paid: false, message: "查询失败" }, { status: 500 })
   }
 }
