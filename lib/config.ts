@@ -6,9 +6,10 @@ import pool from "@/lib/db"
 export async function getPaymentEnabled(): Promise<boolean> {
   try {
     const val = await getConfig("enable_payment", "true")
-    return val === "true"
+    // getConfig 可能 JSON.parse("true") → boolean true，用 String() 兜底
+    return String(val) === "true"
   } catch {
-    return true // DB 不可用时默认启用以避免阻塞收入
+    return true
   }
 }
 

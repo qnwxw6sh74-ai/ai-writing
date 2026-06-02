@@ -17,6 +17,7 @@ const quickLinks = [
   { emoji: "🏷️", label: "爆文标题生成", href: "/title-generator" },
   { emoji: "🖼️", label: "图片生成", href: "/image-generator" },
   { emoji: "🛡️", label: "原创检测", href: "/originality-check" },
+  { emoji: "🎨", label: "风格实验室", href: "/style-lab" },
   { emoji: "📚", label: "使用教程", href: "/tutorials" },
 ]
 
