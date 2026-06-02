@@ -11,6 +11,7 @@
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "docx": "^9.7.1",
     "jose": "^6.2.3",
     "lucide-react": "^1.17.0",
     "mysql2": "^3.22.4",
