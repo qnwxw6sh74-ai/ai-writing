@@ -163,6 +163,7 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
                 >
                   <QrCode size={16} /> 微信支付
                 </button>
+                {/* 支付宝暂未接入，后续启用取消注释即可
                 <button
                   onClick={() => handlePay(plan, 2)}
                   disabled={isPaying}
@@ -170,6 +171,7 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
                 >
                   <Wallet2 size={16} /> 支付宝
                 </button>
+                */}
               </div>
             </div>
           ))}
