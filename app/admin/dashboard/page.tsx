@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { FileText, LogOut, Globe, DollarSign, PanelRight, ClipboardList, Plus, Trash2, Save, Info, BookOpen, Terminal, Cpu } from "lucide-react"
+import { FileText, LogOut, Globe, DollarSign, PanelRight, ClipboardList, Plus, Trash2, Save, Info, BookOpen, Terminal, Cpu, Users, Search, ChevronLeft, ChevronRight } from "lucide-react"
 
 interface SiteConfig {
   key: string; value: string; type: string; description: string; group: string
@@ -19,6 +19,12 @@ interface PromptTemplate {
 interface AIModel {
   id: number; name: string; provider: string; api_key: string; base_url: string; model: string; max_tokens: number; temperature: number; is_active: number; keyword_triggers: string; sort_order: number
 }
+interface AdminUser {
+  id: number; email: string; nickname: string; email_verified: number
+  total_generations: number; total_exports: number
+  purchased_credits: number; credits_used: number
+  created_at: string; last_login_at: string
+}
 
 const tabs = [
   { id: "general", label: "站点设置", icon: Globe },
@@ -30,6 +36,7 @@ const tabs = [
   { id: "payment", label: "支付设置", icon: DollarSign },
   { id: "seo", label: "SEO设置", icon: FileText },
   { id: "models", label: "AI模型", icon: Cpu },
+  { id: "users", label: "用户列表", icon: Users },
 ]
 
 export default function AdminDashboardPage() {
@@ -55,6 +62,13 @@ export default function AdminDashboardPage() {
   const [editingModel, setEditingModel] = useState<AIModel | null>(null)
   const [newModel, setNewModel] = useState(false)
 
+  // 用户列表状态
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [userTotal, setUserTotal] = useState(0)
+  const [userPage, setUserPage] = useState(1)
+  const [userSearch, setUserSearch] = useState("")
+  const [userLoading, setUserLoading] = useState(false)
+
   useEffect(() => {
     fetchSettings()
     fetchChangelogs()
@@ -62,6 +76,10 @@ export default function AdminDashboardPage() {
     fetchPrompts()
     fetchModels()
   }, [])
+
+  useEffect(() => {
+    if (activeTab === "users") fetchUsers()
+  }, [activeTab, userPage, userSearch])
 
   const fetchPrompts = async () => {
     try {
@@ -149,6 +167,24 @@ export default function AdminDashboardPage() {
     setTimeout(() => setMessage(""), 2000)
     fetchModels()
   }
+
+  // === 用户列表 ===
+  const fetchUsers = async () => {
+    setUserLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (userSearch) params.set("search", userSearch)
+      params.set("page", String(userPage))
+      const res = await fetch(`/api/admin/users?${params}`)
+      if (res.status === 401) { router.push("/admin/login"); return }
+      const data = await res.json()
+      setUsers(data.users || [])
+      setUserTotal(data.total || 0)
+    } catch { /* ignore */ }
+    finally { setUserLoading(false) }
+  }
+
+  const totalPages = Math.max(1, Math.ceil(userTotal / 20))
 
   const fetchAbout = async () => {
     try {
@@ -660,8 +696,113 @@ export default function AdminDashboardPage() {
               </div>
             )}
 
+            {/* ===== 用户列表 ===== */}
+            {activeTab === "users" && (
+              <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-white">用户列表</h2>
+                    <p className="text-zinc-500 text-sm">管理所有注册用户，查看使用统计</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+                      <input
+                        type="text"
+                        value={userSearch}
+                        onChange={e => { setUserSearch(e.target.value); setUserPage(1) }}
+                        placeholder="搜索邮箱或昵称..."
+                        className="w-52 bg-zinc-800 border border-zinc-700 rounded-lg pl-9 pr-3 py-1.5 text-sm text-white focus:outline-none focus:border-red-500"
+                      />
+                    </div>
+                    <span className="text-xs text-zinc-500">共 {userTotal} 人</span>
+                  </div>
+                </div>
+
+                {userLoading ? (
+                  <div className="text-center py-12 text-zinc-500">加载中...</div>
+                ) : users.length === 0 ? (
+                  <div className="text-center py-12 text-zinc-500">暂无注册用户</div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-zinc-800 text-zinc-500">
+                            <th className="text-left py-2 px-2 font-medium">ID</th>
+                            <th className="text-left py-2 px-2 font-medium">邮箱</th>
+                            <th className="text-left py-2 px-2 font-medium">昵称</th>
+                            <th className="text-center py-2 px-2 font-medium">验证</th>
+                            <th className="text-center py-2 px-2 font-medium">生成</th>
+                            <th className="text-center py-2 px-2 font-medium">购买额度</th>
+                            <th className="text-center py-2 px-2 font-medium">已用</th>
+                            <th className="text-left py-2 px-2 font-medium">注册时间</th>
+                            <th className="text-left py-2 px-2 font-medium">最近登录</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map(u => (
+                            <tr key={u.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30 text-zinc-300">
+                              <td className="py-2 px-2 text-zinc-600 text-xs">{u.id}</td>
+                              <td className="py-2 px-2 font-mono text-xs">{u.email}</td>
+                              <td className="py-2 px-2">{u.nickname || '-'}</td>
+                              <td className="py-2 px-2 text-center">
+                                {u.email_verified ? (
+                                  <span className="text-green-400 text-xs">✓</span>
+                                ) : (
+                                  <span className="text-yellow-500 text-xs">未验证</span>
+                                )}
+                              </td>
+                              <td className="py-2 px-2 text-center">{u.total_generations}</td>
+                              <td className="py-2 px-2 text-center text-red-400">{u.purchased_credits}</td>
+                              <td className="py-2 px-2 text-center">{u.credits_used}</td>
+                              <td className="py-2 px-2 text-xs text-zinc-500">
+                                {u.created_at ? new Date(u.created_at).toLocaleDateString("zh-CN") : '-'}
+                              </td>
+                              <td className="py-2 px-2 text-xs text-zinc-500">
+                                {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString("zh-CN") : '从未登录'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* 分页 */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-zinc-800">
+                        <span className="text-xs text-zinc-500">
+                          第 {userPage}/{totalPages} 页
+                        </span>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            title="上一页"
+                            onClick={() => setUserPage(p => Math.max(1, p - 1))}
+                            disabled={userPage <= 1}
+                            className="p-1.5 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30"
+                          >
+                            <ChevronLeft size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            title="下一页"
+                            onClick={() => setUserPage(p => Math.min(totalPages, p + 1))}
+                            disabled={userPage >= totalPages}
+                            className="p-1.5 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-30"
+                          >
+                            <ChevronRight size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             {/* ===== 站点设置 (通用 + 内容管理 + 广告 + 支付 + SEO) ===== */}
-            {activeTab !== "changelogs" && activeTab !== "about" && activeTab !== "prompts" && activeTab !== "models" && (
+            {activeTab !== "changelogs" && activeTab !== "about" && activeTab !== "prompts" && activeTab !== "models" && activeTab !== "users" && (
               <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
                 <h2 className="text-lg font-bold text-white mb-1">{tabs.find((t) => t.id === activeTab)?.label}</h2>
                 <p className="text-zinc-500 text-sm mb-6">

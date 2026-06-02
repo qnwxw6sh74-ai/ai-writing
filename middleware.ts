@@ -97,6 +97,7 @@ export const config = {
     "/api/admin/:path*",
     "/api/payment/:path*",
     "/api/style/:path*",
+    "/api/auth/:path*",
     "/admin/:path*",
     "/style-lab",
     "/style-lab/:path*",

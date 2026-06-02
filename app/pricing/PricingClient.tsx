@@ -44,7 +44,7 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
     }
   }, [])
 
-  const startPolling = (payId: string) => {
+  const startPolling = (payId: string, orderId: string) => {
     setIsPolling(true)
     setPollTimedOut(false)
     let count = 0
@@ -52,7 +52,7 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
     pollRef.current = setInterval(async () => {
       count++
       try {
-        const res = await fetch(`/api/payment/check?payId=${payId}`)
+        const res = await fetch(`/api/payment/check?payId=${payId}&orderId=${orderId}`)
         const data = await res.json()
 
         if (data.paid) {
@@ -103,9 +103,9 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
         window.open(data.payPageUrl, "_blank")
       }
 
-      // 启动轮询
-      if (data.orderId) {
-        startPolling(data.orderId)
+      // 启动轮询（payId 查本地订单，orderId 查 V免签）
+      if (data.payId) {
+        startPolling(data.payId, data.orderId || data.payId)
       }
     } catch {
       setOrderResult({ message: "支付服务暂不可用，请稍后重试" })

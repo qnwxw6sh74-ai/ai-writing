@@ -3,22 +3,23 @@ import { checkOrder } from "@/lib/payment"
 import pool from "@/lib/db"
 
 /**
- * GET /api/payment/check?payId=xxx
+ * GET /api/payment/check?payId=xxx&orderId=yyy
  * 前端轮询此接口，支付成功时自动充值
- * payId 参数对应 V免签的云端 orderId
+ * - payId: 商户订单号（用于查询本地订单）
+ * - orderId: V免签云端订单号（用于查询 V免签状态），不传则用 payId
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const orderId = searchParams.get("payId")
-    // 兼容旧参数名
-    const payId = orderId || ""
+    const payId = searchParams.get("payId") || ""
+    // V免签查单用云端 orderId，本地查单用商户 payId
+    const vmqOrderId = searchParams.get("orderId") || payId
 
     if (!payId) {
       return NextResponse.json({ error: "缺少订单号" }, { status: 400 })
     }
 
-    // 先查本地订单状态
+    // 先查本地订单状态（用商户 payId）
     let localOrder: any = null
     try {
       const [rows] = await pool.execute(
@@ -38,8 +39,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // 查 V免签远程状态
-    const result = await checkOrder(payId)
+    // 查 V免签远程状态（用云端 orderId）
+    const result = await checkOrder(vmqOrderId)
 
     // 支付成功 → 自动充值
     if (result.paid) {

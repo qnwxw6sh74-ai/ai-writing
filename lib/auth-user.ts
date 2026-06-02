@@ -123,7 +123,7 @@ export function generateVerificationToken(): string {
 export async function getUserByEmail(email: string): Promise<any | null> {
   try {
     const [rows] = await pool.execute(
-      'SELECT id, email, password_hash, nickname, email_verified, bio, favorite_keywords, preferred_style, total_generations, total_exports, last_export_format, created_at, last_login_at FROM users WHERE email = ?',
+      'SELECT id, email, password_hash, nickname, email_verified, verification_token, bio, favorite_keywords, preferred_style, total_generations, total_exports, last_export_format, created_at, last_login_at FROM users WHERE email = ?',
       [email]
     ) as any[]
     return rows[0] || null
@@ -193,6 +193,26 @@ export async function incrementUserStats(
       )
     }
   } catch { /* 统计更新失败不影响主流程 */ }
+}
+
+/** 创建密码重置 token（1小时有效） */
+export async function createResetToken(userId: number): Promise<string> {
+  return new SignJWT({ userId, purpose: 'password_reset' } as any)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('1h')
+    .sign(JWT_SECRET)
+}
+
+/** 验证密码重置 token */
+export async function verifyResetToken(token: string): Promise<{ userId: number } | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET)
+    if (payload.purpose !== 'password_reset' || !payload.userId) return null
+    return { userId: payload.userId as number }
+  } catch {
+    return null
+  }
 }
 
 export { USER_TOKEN_COOKIE, TOKEN_MAX_AGE }

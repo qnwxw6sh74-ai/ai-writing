@@ -18,6 +18,9 @@ function LoginForm() {
     if (searchParams.get('verified') === '1') {
       setSuccess('邮箱验证成功！请登录')
     }
+    if (searchParams.get('reset') === '1') {
+      setSuccess('密码重置成功！请使用新密码登录')
+    }
     if (searchParams.get('error')) {
       const errMap: Record<string, string> = {
         invalid_token: '验证链接无效或已过期',
@@ -119,6 +122,10 @@ function LoginForm() {
             还没有账号？{' '}
             <Link href="/register" className="text-red-400 hover:text-red-300">
               注册
+            </Link>
+            <span className="mx-2 text-zinc-700">|</span>
+            <Link href="/forgot-password" className="text-zinc-500 hover:text-zinc-300">
+              忘记密码？
             </Link>
           </p>
         </form>

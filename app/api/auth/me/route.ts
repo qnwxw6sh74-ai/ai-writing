@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserFromRequest, getUserById, updateUserProfile, verifyPassword, hashPassword, updateUserPassword } from '@/lib/auth-user'
+import { getUserFromRequest, verifyUserToken, getUserById, updateUserProfile, verifyPassword, hashPassword, updateUserPassword } from '@/lib/auth-user'
 import { checkCredits } from '@/lib/credits'
 import pool from '@/lib/db'
 
 /** GET — 获取当前登录用户信息 */
 export async function GET(request: NextRequest) {
-  const user = getUserFromRequest(request)
+  // 优先从 middleware 注入的 header 获取，fallback 直接读 cookie
+  let user = getUserFromRequest(request)
+  if (!user) {
+    const token = request.cookies.get('user_token')?.value
+    if (token) {
+      const payload = await verifyUserToken(token)
+      if (payload) user = payload
+    }
+  }
+
   if (!user) {
     return NextResponse.json({ error: '未登录' }, { status: 401 })
   }
@@ -22,7 +31,14 @@ export async function GET(request: NextRequest) {
 
 /** PUT — 更新个人资料 */
 export async function PUT(request: NextRequest) {
-  const user = getUserFromRequest(request)
+  let user = getUserFromRequest(request)
+  if (!user) {
+    const token = request.cookies.get('user_token')?.value
+    if (token) {
+      const payload = await verifyUserToken(token)
+      if (payload) user = payload
+    }
+  }
   if (!user) {
     return NextResponse.json({ error: '未登录' }, { status: 401 })
   }

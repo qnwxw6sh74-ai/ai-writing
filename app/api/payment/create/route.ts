@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createOrder, getNotifyUrl, getSiteUrl } from "@/lib/payment"
+import { resolveUserId } from "@/lib/credits"
 import pool from "@/lib/db"
-
-/** 根据 IP 获取用户标识 */
-function getUserIdentifier(request: NextRequest): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || request.headers.get("x-real-ip")
-    || "127.0.0.1"
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +11,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "参数不完整" }, { status: 400 })
     }
 
-    const userId = getUserIdentifier(request)
+    // 优先使用登录用户 ID，未登录回退 IP
+    const userId = resolveUserId(
+      request.headers.get("x-user-payload"),
+      request.headers.get("x-forwarded-for"),
+      request.headers.get("x-real-ip")
+    )
 
     // 查询套餐信息，获取购买额度
     let creditsToAdd = 0
@@ -40,13 +39,15 @@ export async function POST(request: NextRequest) {
       returnUrl: `${getSiteUrl()}/pricing?paid=1`,
     })
 
-    // 订单信息写入本地数据库
-    if (result.orderId && result.success) {
+    // 订单写入本地：pay_id 存商户订单号（与 V免签回调的 payId 一致）
+    // 前端轮询用 payId（DB 查询），V免签查单用 orderId（云端订单号）
+    const merchantPayId = result.payId
+    if (merchantPayId && result.success) {
       try {
         await pool.execute(
           `INSERT INTO payment_orders (pay_id, user_identifier, plan_id, price, credits_to_add, status, pay_type)
            VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
-          [result.orderId, userId, planId || null, price, creditsToAdd, type]
+          [merchantPayId, userId, planId || null, price, creditsToAdd, type]
         )
       } catch { /* 入库失败不阻塞支付流程 */ }
     }

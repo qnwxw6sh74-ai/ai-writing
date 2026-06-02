@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
     const verificationToken = generateVerificationToken()
 
     await pool.execute(
-      `INSERT INTO users (email, password_hash, nickname, verification_token, verification_sent_at)
-       VALUES (?, ?, ?, ?, NOW())`,
+      `INSERT INTO users (email, password_hash, nickname, email_verified, verification_token, verification_sent_at)
+       VALUES (?, ?, ?, 0, ?, NOW())`,
       [emailLower, passwordHash, nickname || emailLower.split('@')[0], verificationToken]
     )
 
