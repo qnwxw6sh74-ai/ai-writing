@@ -71,9 +71,9 @@ CREATE TABLE IF NOT EXISTS pricing_plans (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT IGNORE INTO pricing_plans (id, name, price, credits, description, sort_order) VALUES
-(1, '体验套餐', 9.90, 10, '10次生成额度', 1),
-(2, '标准套餐', 29.90, 50, '50次生成额度，平均每次不到6毛', 2),
-(3, '专业套餐', 59.90, 150, '150次生成额度，适合专业自媒体', 3);
+(1, '体验套餐', 6.90, 20, '20次生成额度', 1),
+(2, '标准套餐', 19.90, 80, '80次生成额度，平均每次不到2毛5', 2),
+(3, '专业套餐', 39.90, 260, '260次生成额度，适合专业自媒体', 3);
 
 -- AI Prompt 模板
 CREATE TABLE IF NOT EXISTS prompt_templates (
