@@ -30,17 +30,15 @@ export async function GET(request: NextRequest) {
     ) as any[]
     const used = Number(usedRows[0]?.used) || 0
 
-    // 付费购买的额度（仅登录用户查询，IP用户不适用）
+    // 付费购买的额度（IP 和用户统一按标识查询）
     let purchasedCredits = 0
-    if (/^\d+$/.test(userId)) {
-      try {
-        const [rechargeRows] = await pool.execute(
-          "SELECT COALESCE(SUM(credits_added), 0) AS total FROM credits_recharge WHERE user_identifier = ?",
-          [userId]
-        ) as any[]
-        purchasedCredits = Number(rechargeRows[0]?.total) || 0
-      } catch { /* credits_recharge 表可能尚未创建 */ }
-    }
+    try {
+      const [rechargeRows] = await pool.execute(
+        "SELECT COALESCE(SUM(credits_added), 0) AS total FROM credits_recharge WHERE user_identifier = ?",
+        [userId]
+      ) as any[]
+      purchasedCredits = Number(rechargeRows[0]?.total) || 0
+    } catch { /* credits_recharge 表可能尚未创建 */ }
 
     const totalCredits = freeCredits + purchasedCredits
     const remaining = Math.max(0, totalCredits - used)

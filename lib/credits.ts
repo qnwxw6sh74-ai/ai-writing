@@ -65,14 +65,9 @@ async function getPurchasedCredits(userId: string): Promise<number> {
   }
 }
 
-/** 判断是否为真实用户ID（数字）而非 IP */
-function isRealUser(id: string): boolean {
-  return /^\d+$/.test(id)
-}
-
 /**
  * 检查用户是否还有额度（免费 + 付费）
- * 应在生成前调用。仅登录用户计入充值额度。
+ * 未登录用IP标识、已登录用user_id，买过的额度归谁就是谁的
  */
 export async function checkCredits(userId: string): Promise<CreditsResult> {
   try {
@@ -82,7 +77,7 @@ export async function checkCredits(userId: string): Promise<CreditsResult> {
     }
 
     const freeCredits = await getFreeCredits()
-    const purchasedCredits = isRealUser(userId) ? await getPurchasedCredits(userId) : 0
+    const purchasedCredits = await getPurchasedCredits(userId)
     const totalCredits = freeCredits + purchasedCredits
 
     const [rows] = await pool.execute(
