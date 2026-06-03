@@ -216,23 +216,3 @@ function generateExtraParagraph(keyword: string): string {
   return paragraphs[Math.floor(Math.random() * paragraphs.length)]
 }
 
-// 原创检测 Mock
-export function mockOriginalityCheck(text: string) {
-  const wordCount = text.length
-  // 模拟一个看起来合理的原创度分数
-  const baseScore = 65 + Math.floor(Math.random() * 30)
-  return {
-    score: Math.min(baseScore, 98),
-    wordCount,
-    suggestions: [
-      '建议替换部分常用词组，增加表达多样性',
-      '段落3可考虑重新组织语句结构',
-      '整体原创度良好，可适当增加个人观点',
-    ],
-    details: {
-      uniqueSentences: Math.floor(Math.random() * 20) + 60,
-      repeatedPhrases: Math.floor(Math.random() * 5) + 1,
-      readabilityScore: Math.floor(Math.random() * 20) + 70,
-    },
-  }
-}

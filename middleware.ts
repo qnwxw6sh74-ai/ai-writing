@@ -8,7 +8,7 @@ const JWT_SECRET = new TextEncoder().encode(
 /** 需要用户登录的 API 路由 */
 const USER_API_ROUTES = ["/api/payment/", "/api/style/"]
 /** 需要用户登录的页面路由 */
-const USER_PAGE_ROUTES = ["/style-lab", "/pricing", "/profile"]
+const USER_PAGE_ROUTES = ["/style-lab", "/pricing", "/profile", "/originality-check"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -104,6 +104,7 @@ export const config = {
     "/style-lab",
     "/style-lab/:path*",
     "/pricing",
+    "/originality-check",
     "/profile",
     "/profile/:path*",
   ],
