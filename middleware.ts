@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jwtVerify } from "jose"
 
+if (!process.env.JWT_SECRET) {
+  console.warn("⚠️  WARNING: JWT_SECRET 环境变量未设置！请在生产环境中配置强密钥。")
+}
+
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || process.env.ADMIN_PASSWORD || "ai-writing-secret-key-change-me"
 )

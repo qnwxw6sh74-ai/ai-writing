@@ -4,15 +4,29 @@ import crypto from 'crypto'
 import nodemailer from 'nodemailer'
 import pool from '@/lib/db'
 
-// ---- JWT ----
+// ---- 常量 ----
 
-// 与 lib/auth.ts 使用同一个 JWT_SECRET，确保 admin 和 user token 可共存
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || process.env.ADMIN_PASSWORD || 'ai-writing-secret-key-change-me'
-)
+const TOKEN_EXPIRY_DAYS = 7
+const TOKEN_EXPIRY_SECONDS = TOKEN_EXPIRY_DAYS * 24 * 60 * 60
+const RESET_TOKEN_EXPIRY = '1h'
+const BCRYPT_ROUNDS = 10
 
-const USER_TOKEN_COOKIE = 'user_token'
-const TOKEN_MAX_AGE = 7 * 24 * 60 * 60 // 7天
+// ---- 类型 ----
+
+export interface User {
+  id: number
+  email: string
+  nickname: string
+  email_verified: number
+  bio: string | null
+  favorite_keywords: string | null
+  preferred_style: string | null
+  total_generations: number
+  total_exports: number
+  last_export_format: string | null
+  created_at: string
+  last_login_at: string | null
+}
 
 export interface UserPayload {
   userId: number
@@ -20,11 +34,30 @@ export interface UserPayload {
   role: 'user'
 }
 
+// ---- JWT ----
+
+// 与 lib/auth.ts 使用同一个 JWT_SECRET，确保 admin 和 user token 可共存
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️  WARNING: JWT_SECRET 环境变量未设置！请在生产环境中配置强密钥。')
+}
+
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || process.env.ADMIN_PASSWORD || 'ai-writing-secret-key-change-me'
+)
+
+const USER_TOKEN_COOKIE = 'user_token'
+
+// ---- 统一错误处理 ----
+
+function handleError(operation: string, error: unknown): void {
+  console.error(`[auth-user] ${operation} 失败:`, error instanceof Error ? error.message : error)
+}
+
 export async function createUserToken(payload: UserPayload): Promise<string> {
   return new SignJWT(payload as any)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime(`${TOKEN_EXPIRY_DAYS}d`)
     .sign(JWT_SECRET)
 }
 
@@ -51,7 +84,7 @@ export function getUserFromRequest(request: Request): UserPayload | null {
 // ---- 密码 ----
 
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10)
+  return bcrypt.hash(password, BCRYPT_ROUNDS)
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
@@ -120,26 +153,42 @@ export function generateVerificationToken(): string {
 
 // ---- 数据库查询 ----
 
-export async function getUserByEmail(email: string): Promise<any | null> {
+export async function getUserByEmail(email: string): Promise<User | null> {
   try {
     const [rows] = await pool.execute(
       'SELECT id, email, password_hash, nickname, email_verified, verification_token, bio, favorite_keywords, preferred_style, total_generations, total_exports, last_export_format, created_at, last_login_at FROM users WHERE email = ?',
       [email]
     ) as any[]
-    return rows[0] || null
-  } catch {
+    return (rows[0] as User) || null
+  } catch (error) {
+    handleError('getUserByEmail', error)
     return null
   }
 }
 
-export async function getUserById(id: number): Promise<any | null> {
+export async function getUserById(id: number): Promise<User | null> {
   try {
     const [rows] = await pool.execute(
       'SELECT id, email, nickname, email_verified, bio, favorite_keywords, preferred_style, total_generations, total_exports, last_export_format, created_at, last_login_at FROM users WHERE id = ?',
       [id]
     ) as any[]
+    return (rows[0] as User) || null
+  } catch (error) {
+    handleError('getUserById', error)
+    return null
+  }
+}
+
+/** 按需查询用户展示信息（轻量查询，不含敏感字段） */
+export async function getUserProfile(id: number): Promise<Pick<User, 'id' | 'nickname' | 'email_verified' | 'bio' | 'favorite_keywords' | 'preferred_style' | 'total_generations' | 'total_exports' | 'last_export_format'> | null> {
+  try {
+    const [rows] = await pool.execute(
+      'SELECT id, nickname, email_verified, bio, favorite_keywords, preferred_style, total_generations, total_exports, last_export_format FROM users WHERE id = ?',
+      [id]
+    ) as any[]
     return rows[0] || null
-  } catch {
+  } catch (error) {
+    handleError('getUserProfile', error)
     return null
   }
 }
@@ -161,7 +210,8 @@ export async function updateUserProfile(
     values.push(userId)
     await pool.execute(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values)
     return true
-  } catch {
+  } catch (error) {
+    handleError('updateUserProfile', error)
     return false
   }
 }
@@ -170,7 +220,8 @@ export async function updateUserPassword(userId: number, newHash: string): Promi
   try {
     await pool.execute('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, userId])
     return true
-  } catch {
+  } catch (error) {
+    handleError('updateUserPassword', error)
     return false
   }
 }
@@ -192,7 +243,9 @@ export async function incrementUserStats(
         [userId]
       )
     }
-  } catch { /* 统计更新失败不影响主流程 */ }
+  } catch (error) {
+    handleError('incrementUserStats', error)
+  }
 }
 
 /** 创建密码重置 token（1小时有效） */
@@ -200,7 +253,7 @@ export async function createResetToken(userId: number): Promise<string> {
   return new SignJWT({ userId, purpose: 'password_reset' } as any)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('1h')
+    .setExpirationTime(RESET_TOKEN_EXPIRY)
     .sign(JWT_SECRET)
 }
 
@@ -215,4 +268,4 @@ export async function verifyResetToken(token: string): Promise<{ userId: number 
   }
 }
 
-export { USER_TOKEN_COOKIE, TOKEN_MAX_AGE }
+export { USER_TOKEN_COOKIE, TOKEN_EXPIRY_SECONDS }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
-import { verifyPassword, createUserToken, getUserByEmail, TOKEN_MAX_AGE, USER_TOKEN_COOKIE } from '@/lib/auth-user'
+import { verifyPassword, createUserToken, getUserByEmail, TOKEN_EXPIRY_SECONDS, USER_TOKEN_COOKIE } from '@/lib/auth-user'
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: TOKEN_MAX_AGE,
+      maxAge: TOKEN_EXPIRY_SECONDS,
       path: '/',
     })
 
