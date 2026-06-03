@@ -93,8 +93,43 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // === 生成成功，扣除积分 ===
-    const updatedCredits = await deductCredits(userId, ip, "article")
+    // === 每5次生成自动扣1次（2分钟冷却）===
+    let autoDeducted = false
+    if (/^\d+$/.test(userId)) {
+      try {
+        // 更新 gen_count
+        await pool.execute(
+          "UPDATE users SET gen_count = gen_count + 1 WHERE id = ?",
+          [parseInt(userId)]
+        )
+
+        // 检查是否触发自动扣费
+        const [genRows] = await pool.execute(
+          "SELECT gen_count, gen_cooldown_until FROM users WHERE id = ?",
+          [parseInt(userId)]
+        ) as any[]
+        const genCount = Number(genRows[0]?.gen_count) || 0
+        const cooldownUntil = genRows[0]?.gen_cooldown_until
+        const now = new Date()
+
+        if (genCount >= 5 && (!cooldownUntil || new Date(cooldownUntil) <= now)) {
+          // 自动扣1次
+          await pool.execute(
+            "INSERT INTO credits_log (user_identifier, action, credits_used) VALUES (?, 'auto_gen5', 1)",
+            [userId]
+          )
+          // 重置计数 + 设置冷却
+          await pool.execute(
+            "UPDATE users SET gen_count = 0, gen_cooldown_until = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE id = ?",
+            [parseInt(userId)]
+          )
+          autoDeducted = true
+        }
+      } catch { /* gen_count 更新失败不影响主流程 */ }
+    }
+
+    // 返回更新后的额度
+    const updatedCredits = await checkCredits(userId, ip)
 
     // 记录生成历史
     try {
@@ -104,7 +139,7 @@ export async function POST(request: NextRequest) {
       )
     } catch { /* DB 不可用 */ }
 
-    return NextResponse.json({ content, credits: updatedCredits })
+    return NextResponse.json({ content, credits: updatedCredits, autoDeducted })
   } catch (error) {
     console.error("Generate error:", error)
     return NextResponse.json({ error: "生成失败，请稍后重试" }, { status: 500 })

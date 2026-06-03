@@ -3,7 +3,16 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { User, Settings, Key, Save, ArrowLeft } from 'lucide-react'
+import { User, Settings, Key, Save, ArrowLeft, History, FileText, Download, Upload, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+
+interface HistoryItem {
+  id: number
+  type: 'article' | 'export' | 'import'
+  title: string
+  word_count: number
+  metadata: any
+  created_at: string
+}
 
 interface UserProfile {
   id: number
@@ -39,9 +48,42 @@ export default function ProfilePage() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
 
+  // Tab + 历史
+  const [tab, setTab] = useState<'profile' | 'history'>('profile')
+  const [history, setHistory] = useState<HistoryItem[]>([])
+  const [historyType, setHistoryType] = useState('all')
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyTotal, setHistoryTotal] = useState(0)
+  const [historyLoading, setHistoryLoading] = useState(false)
+
   useEffect(() => {
     fetchProfile()
   }, [])
+
+  useEffect(() => {
+    if (tab === 'history') fetchHistory()
+  }, [tab, historyType, historyPage])
+
+  const fetchHistory = async () => {
+    setHistoryLoading(true)
+    try {
+      const res = await fetch(`/api/history?type=${historyType}&page=${historyPage}`)
+      if (res.ok) {
+        const data = await res.json()
+        setHistory(data.items || [])
+        setHistoryTotal(data.total || 0)
+      }
+    } catch { /* */ }
+    finally { setHistoryLoading(false) }
+  }
+
+  const deleteHistory = async (id: number) => {
+    await fetch(`/api/history?id=${id}`, { method: 'DELETE' })
+    fetchHistory()
+  }
+
+  const typeIcon = (t: string) => t === 'article' ? <FileText size={14} /> : t === 'export' ? <Download size={14} /> : <Upload size={14} />
+  const typeLabel = (t: string) => t === 'article' ? '文章' : t === 'export' ? '导出' : '导入'
 
   const fetchProfile = async () => {
     try {
@@ -150,6 +192,28 @@ export default function ProfilePage() {
           </Link>
           <button onClick={handleLogout} className="text-sm text-zinc-500 hover:text-red-400">
             退出登录
+          </button>
+        </div>
+
+        {/* Tab 切换 */}
+        <div className="flex border-b border-zinc-800 mb-6">
+          <button
+            onClick={() => setTab('profile')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              tab === 'profile' ? 'border-red-500 text-red-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <User size={14} className="inline mr-1.5" />
+            个人信息
+          </button>
+          <button
+            onClick={() => setTab('history')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              tab === 'history' ? 'border-red-500 text-red-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <History size={14} className="inline mr-1.5" />
+            历史记录
           </button>
         </div>
 
@@ -295,6 +359,84 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+
+        {/* ====== Tab: 历史记录 ====== */}
+        {tab === 'history' && (
+          <div>
+            {/* 类型筛选 */}
+            <div className="flex gap-2 mb-4">
+              {['all', 'article', 'export', 'import'].map(t => (
+                <button
+                  key={t}
+                  onClick={() => { setHistoryType(t); setHistoryPage(1) }}
+                  className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
+                    historyType === t ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {t === 'all' ? '全部' : typeLabel(t)}
+                </button>
+              ))}
+            </div>
+
+            {/* 列表 */}
+            {historyLoading ? (
+              <div className="text-center py-12 text-zinc-500">加载中...</div>
+            ) : history.length === 0 ? (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-12 text-center text-zinc-500 text-sm">
+                暂无记录
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {history.map((item) => (
+                  <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className={`p-1.5 rounded ${
+                        item.type === 'article' ? 'bg-blue-950/50 text-blue-400' :
+                        item.type === 'export' ? 'bg-green-950/50 text-green-400' :
+                        'bg-purple-950/50 text-purple-400'
+                      }`}>
+                        {typeIcon(item.type)}
+                      </span>
+                      <div>
+                        <p className="text-sm text-zinc-200 font-medium">{item.title}</p>
+                        <p className="text-xs text-zinc-600">
+                          {typeLabel(item.type)} · {item.word_count}字 · {new Date(item.created_at).toLocaleString('zh-CN')}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteHistory(item.id)}
+                      className="text-zinc-700 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 分页 */}
+            {historyTotal > 20 && (
+              <div className="flex items-center justify-center gap-4 mt-4">
+                <button
+                  onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                  disabled={historyPage <= 1}
+                  className="p-1.5 rounded bg-zinc-800 text-zinc-400 disabled:opacity-30 hover:text-white transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-xs text-zinc-500">{historyPage} / {Math.ceil(historyTotal / 20)}</span>
+                <button
+                  onClick={() => setHistoryPage(p => p + 1)}
+                  disabled={historyPage >= Math.ceil(historyTotal / 20)}
+                  className="p-1.5 rounded bg-zinc-800 text-zinc-400 disabled:opacity-30 hover:text-white transition-colors"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

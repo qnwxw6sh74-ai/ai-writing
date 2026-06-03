@@ -167,7 +167,13 @@ export default function GeneratePage() {
               </div>
             )}
 
-            {content && <ArticleOutput content={content} />}
+            {content && (
+              <ArticleOutput
+                content={content}
+                credits={credits}
+                onCreditsChange={(c) => setCredits((prev) => prev ? { ...prev, ...c } : prev)}
+              />
+            )}
           </div>
         </div>
       </div>

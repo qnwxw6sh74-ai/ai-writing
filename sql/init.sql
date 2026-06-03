@@ -292,3 +292,22 @@ CREATE TABLE IF NOT EXISTS users (
     INDEX idx_email (email),
     INDEX idx_verification_token (verification_token)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 生成计数器 + 冷却时间（每5次自动扣1，2分钟冷却）
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gen_count INT DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gen_cooldown_until DATETIME NULL;
+
+-- 用户历史记录（确认的文章 + 导出/导入记录）
+CREATE TABLE IF NOT EXISTS user_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    type ENUM('article','export','import') NOT NULL,
+    title VARCHAR(255),
+    content LONGTEXT,
+    word_count INT DEFAULT 0,
+    metadata JSON,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    INDEX idx_type (type),
+    INDEX idx_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
