@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       "SELECT COUNT(*) AS used FROM credits_log WHERE user_identifier = ?",
       [userId]
     ) as any[]
-    const used = usedRows[0]?.used || 0
+    const used = Number(usedRows[0]?.used) || 0
 
     // 付费购买的额度
     let purchasedCredits = 0
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         "SELECT COALESCE(SUM(credits_added), 0) AS total FROM credits_recharge WHERE user_identifier = ?",
         [userId]
       ) as any[]
-      purchasedCredits = rechargeRows[0]?.total || 0
+      purchasedCredits = Number(rechargeRows[0]?.total) || 0
     } catch { /* credits_recharge 表可能尚未创建 */ }
 
     const totalCredits = freeCredits + purchasedCredits
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       [userId]
     ) as any[]
 
-    const used = rows[0]?.used || 0
+    const used = Number(rows[0]?.used) || 0
     const remaining = Math.max(0, freeCredits - used)
 
     return NextResponse.json({ success: true, total: freeCredits, used, remaining })

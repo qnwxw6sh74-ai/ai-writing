@@ -41,9 +41,16 @@ export async function GET(request: NextRequest) {
       params
     ) as any[]
 
+    // MySQL 聚合函数返回字符串，前端需要数字
+    const users = rows.map((r: any) => ({
+      ...r,
+      purchased_credits: Number(r.purchased_credits) || 0,
+      credits_used: Number(r.credits_used) || 0,
+    }))
+
     return NextResponse.json({
-      users: rows,
-      total: countRows[0]?.total || 0,
+      users,
+      total: Number(countRows[0]?.total) || 0,
       page,
       limit,
     })

@@ -82,7 +82,7 @@ export async function DELETE(request: NextRequest) {
     const [countRows] = await pool.execute(
       "SELECT COUNT(*) AS cnt FROM ai_models WHERE is_active = 1"
     ) as any[]
-    if (countRows[0]?.cnt <= 1) {
+    if (Number(countRows[0]?.cnt) <= 1) {
       return NextResponse.json({ error: "至少保留一个活跃模型" }, { status: 400 })
     }
 

@@ -59,7 +59,7 @@ async function getPurchasedCredits(userId: string): Promise<number> {
       "SELECT COALESCE(SUM(credits_added), 0) AS total FROM credits_recharge WHERE user_identifier = ?",
       [userId]
     ) as any[]
-    return rows[0]?.total || 0
+    return Number(rows[0]?.total) || 0
   } catch {
     return 0
   }
@@ -85,7 +85,7 @@ export async function checkCredits(userId: string): Promise<CreditsResult> {
       [userId]
     ) as any[]
 
-    const used = rows[0]?.used || 0
+    const used = Number(rows[0]?.used) || 0
     const remaining = Math.max(0, totalCredits - used)
 
     return {
@@ -125,7 +125,7 @@ export async function deductCredits(
       [userId]
     ) as any[]
 
-    const used = rows[0]?.used || 0
+    const used = Number(rows[0]?.used) || 0
     const remaining = Math.max(0, totalCredits - used)
 
     return {
