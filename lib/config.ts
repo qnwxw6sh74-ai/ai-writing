@@ -14,14 +14,20 @@ export async function getPaymentEnabled(): Promise<boolean> {
 }
 
 /**
- * 获取免费使用次数（优先 DB 配置，回退环境变量）
+ * 获取免费使用次数（环境变量优先于 DB 配置）
  */
 export async function getFreeCredits(): Promise<number> {
+  // 环境变量优先（.env.local 是权威配置来源）
+  const envVal = parseInt(process.env.FREE_CREDITS || "0")
+  if (envVal > 0) return envVal
+
+  // 回退：读 DB site_config
   try {
     const val = await getConfig("free_credits", "")
     if (val) return parseInt(String(val)) || 3
   } catch { /* ignore */ }
-  return parseInt(process.env.FREE_CREDITS || "3")
+
+  return 3
 }
 
 /**

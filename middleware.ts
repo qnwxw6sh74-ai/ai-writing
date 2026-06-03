@@ -104,6 +104,8 @@ export const config = {
     "/api/payment/:path*",
     "/api/style/:path*",
     "/api/auth/:path*",
+    "/api/generate",
+    "/api/credits",
     "/admin/:path*",
     "/style-lab",
     "/style-lab/:path*",
