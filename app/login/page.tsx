@@ -50,8 +50,8 @@ function LoginForm() {
         return
       }
 
+      window.dispatchEvent(new Event('auth-changed'))
       router.push('/generate')
-      router.refresh()
     } catch {
       setError('网络错误，请稍后重试')
     } finally {

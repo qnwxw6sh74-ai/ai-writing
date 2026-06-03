@@ -133,8 +133,7 @@ export async function checkCredits(userId: string, ip: string): Promise<CreditsR
 
 /**
  * 记录一次使用（生成成功后调用）
- * 登录用户写 user_id 到 credits_log（计充值额度），
- * 同时写一条 IP 记录（计免费额度）。
+ * 优先扣免费额度（写IP），免费用完再扣充值（写user_id）
  */
 export async function deductCredits(
   userId: string,
@@ -142,15 +141,21 @@ export async function deductCredits(
   action: string = "generate"
 ): Promise<CreditsResult> {
   try {
-    // 始终写 IP 记录（扣免费额度）
-    await pool.execute(
-      "INSERT INTO credits_log (user_identifier, action, credits_used) VALUES (?, ?, 1)",
-      [ip, action]
-    )
+    // 先查当前状态，决定扣哪边
+    const state = await checkCredits(userId, ip)
 
-    // 登录用户额外写 user_id 记录（扣充值额度）
-    const isLoggedIn = /^\d+$/.test(userId)
-    if (isLoggedIn) {
+    if (!state.allowed) {
+      return state
+    }
+
+    // 优先扣免费额度（IP），免费用完扣充值（user_id）
+    if (state.freeRemaining > 0) {
+      await pool.execute(
+        "INSERT INTO credits_log (user_identifier, action, credits_used) VALUES (?, ?, 1)",
+        [ip, action]
+      )
+    } else {
+      // 充值额度（仅登录用户有）
       await pool.execute(
         "INSERT INTO credits_log (user_identifier, action, credits_used) VALUES (?, ?, 1)",
         [userId, action]

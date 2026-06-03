@@ -29,10 +29,19 @@ export function Header({ siteName = "公众号爆文生成器", navLinks = defau
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState<{ nickname: string } | null>(null)
 
-  useEffect(() => {
+  const fetchUser = () => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       if (d.id) setUser(d)
+      else setUser(null)
     }).catch(() => {})
+  }
+
+  useEffect(() => {
+    fetchUser()
+    // 监听自定义事件，登录/退出后即时更新
+    const handler = () => fetchUser()
+    window.addEventListener('auth-changed', handler)
+    return () => window.removeEventListener('auth-changed', handler)
   }, [])
 
   return (

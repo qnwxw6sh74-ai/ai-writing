@@ -128,8 +128,8 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
+    window.dispatchEvent(new Event('auth-changed'))
     router.push('/')
-    router.refresh()
   }
 
   if (loading) {
