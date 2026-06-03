@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateMockTitles } from "@/lib/mock-ai"
 import { generateTitles } from "@/lib/ai-client"
-import { checkCredits, deductCredits, resolveUserId } from "@/lib/credits"
+import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
 import pool from "@/lib/db"
 
@@ -14,12 +14,16 @@ export async function POST(request: NextRequest) {
     }
 
     // === 服务端积分检查 ===
+    const ip = getUserIdentifier(
+      request.headers.get("x-forwarded-for"),
+      request.headers.get("x-real-ip")
+    )
     const userId = resolveUserId(
       request.headers.get("x-user-payload"),
       request.headers.get("x-forwarded-for"),
       request.headers.get("x-real-ip")
     )
-    const creditsCheck = await checkCredits(userId)
+    const creditsCheck = await checkCredits(userId, ip)
 
     if (!creditsCheck.allowed) {
       return NextResponse.json(
@@ -62,7 +66,7 @@ export async function POST(request: NextRequest) {
     }
 
     // === 生成成功，扣除积分 ===
-    const updatedCredits = await deductCredits(userId, "title")
+    const updatedCredits = await deductCredits(userId, ip, "title")
 
     return NextResponse.json({ titles, credits: updatedCredits })
   } catch (error) {

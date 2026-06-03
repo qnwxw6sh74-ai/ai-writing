@@ -1,55 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
-import pool from "@/lib/db"
-import { getPaymentEnabled, getFreeCredits } from "@/lib/config"
-import { resolveUserId } from "@/lib/credits"
+import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 
-/** 获取用户标识：登录用 user_id，未登录用 IP */
-function getUserIdentifier(request: NextRequest): string {
-  return resolveUserId(
-    request.headers.get("x-user-payload"),
-    request.headers.get("x-forwarded-for"),
-    request.headers.get("x-real-ip")
-  )
-}
-
-// GET — 查询剩余额度（免费 + 付费）
+// GET — 查询剩余额度
 export async function GET(request: NextRequest) {
   try {
-    const paymentEnabled = await getPaymentEnabled()
-    if (!paymentEnabled) {
-      return NextResponse.json({ paymentEnabled: false, remaining: Infinity, total: Infinity, used: 0, purchasedCredits: 0 })
-    }
-
-    const freeCredits = await getFreeCredits()
-    const userId = getUserIdentifier(request)
-
-    // 已使用次数
-    const [usedRows] = await pool.execute(
-      "SELECT COUNT(*) AS used FROM credits_log WHERE user_identifier = ?",
-      [userId]
-    ) as any[]
-    const used = Number(usedRows[0]?.used) || 0
-
-    // 付费购买的额度（IP 和用户统一按标识查询）
-    let purchasedCredits = 0
-    try {
-      const [rechargeRows] = await pool.execute(
-        "SELECT COALESCE(SUM(credits_added), 0) AS total FROM credits_recharge WHERE user_identifier = ?",
-        [userId]
-      ) as any[]
-      purchasedCredits = Number(rechargeRows[0]?.total) || 0
-    } catch { /* credits_recharge 表可能尚未创建 */ }
-
-    const totalCredits = freeCredits + purchasedCredits
-    const remaining = Math.max(0, totalCredits - used)
-
-    return NextResponse.json({
-      paymentEnabled: true,
-      total: freeCredits,
-      used,
-      remaining,
-      purchasedCredits,
-    })
+    const ip = getUserIdentifier(
+      request.headers.get("x-forwarded-for"),
+      request.headers.get("x-real-ip")
+    )
+    const userId = resolveUserId(
+      request.headers.get("x-user-payload"),
+      request.headers.get("x-forwarded-for"),
+      request.headers.get("x-real-ip")
+    )
+    return NextResponse.json(await checkCredits(userId, ip))
   } catch {
     return NextResponse.json({ paymentEnabled: false, remaining: Infinity, total: Infinity, used: 0, purchasedCredits: 0 })
   }
@@ -59,24 +23,17 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { action = "generate" } = await request.json().catch(() => ({}))
-    const userId = getUserIdentifier(request)
-
-    await pool.execute(
-      "INSERT INTO credits_log (user_identifier, action, credits_used) VALUES (?, ?, 1)",
-      [userId, action]
+    const ip = getUserIdentifier(
+      request.headers.get("x-forwarded-for"),
+      request.headers.get("x-real-ip")
     )
-
-    // 返回更新后的剩余次数
-    const freeCredits = await getFreeCredits()
-    const [rows] = await pool.execute(
-      "SELECT COUNT(*) AS used FROM credits_log WHERE user_identifier = ?",
-      [userId]
-    ) as any[]
-
-    const used = Number(rows[0]?.used) || 0
-    const remaining = Math.max(0, freeCredits - used)
-
-    return NextResponse.json({ success: true, total: freeCredits, used, remaining })
+    const userId = resolveUserId(
+      request.headers.get("x-user-payload"),
+      request.headers.get("x-forwarded-for"),
+      request.headers.get("x-real-ip")
+    )
+    const result = await deductCredits(userId, ip, action)
+    return NextResponse.json({ success: true, ...result })
   } catch {
     return NextResponse.json({ success: false, remaining: 0 }, { status: 500 })
   }

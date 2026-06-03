@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest, verifyUserToken, getUserById, updateUserProfile, verifyPassword, hashPassword, updateUserPassword } from '@/lib/auth-user'
-import { checkCredits } from '@/lib/credits'
+import { checkCredits, getUserIdentifier } from '@/lib/credits'
 import pool from '@/lib/db'
 
 /** GET — 获取当前登录用户信息 */
@@ -24,7 +24,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: '用户不存在' }, { status: 404 })
   }
 
-  const credits = await checkCredits(profile.id.toString())
+  const ip = getUserIdentifier(
+    request.headers.get('x-forwarded-for'),
+    request.headers.get('x-real-ip')
+  )
+  const credits = await checkCredits(profile.id.toString(), ip)
 
   return NextResponse.json({ ...profile, credits })
 }

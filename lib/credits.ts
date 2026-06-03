@@ -40,11 +40,19 @@ export interface CreditsResult {
   allowed: boolean
   /** 付费功能是否启用 */
   paymentEnabled: boolean
-  /** 免费次数 */
+  /** 免费次数（固定值） */
   total: number
-  /** 已使用次数 */
+  /** 免费部分已使用次数（按IP） */
+  freeUsed: number
+  /** 免费剩余 */
+  freeRemaining: number
+  /** 充值部分已使用次数（按用户） */
+  purchasedUsed: number
+  /** 充值剩余 */
+  purchasedRemaining: number
+  /** 总已使用 */
   used: number
-  /** 剩余次数（免费+付费-已用） */
+  /** 总剩余 */
   remaining: number
   /** 付费购买的总次数 */
   purchasedCredits: number
@@ -66,77 +74,92 @@ async function getPurchasedCredits(userId: string): Promise<number> {
 }
 
 /**
- * 检查用户是否还有额度（免费 + 付费）
- * 未登录用IP标识、已登录用user_id，买过的额度归谁就是谁的
+ * 检查额度 — 双维度计算
+ * @param userId 用户标识（登录时=user_id数字，未登录=IP）
+ * @param ip     客户端IP（始终传，用于免费额度计算）
  */
-export async function checkCredits(userId: string): Promise<CreditsResult> {
+export async function checkCredits(userId: string, ip: string): Promise<CreditsResult> {
   try {
     const paymentEnabled = await getPaymentEnabled()
     if (!paymentEnabled) {
-      return { allowed: true, paymentEnabled: false, total: Infinity, used: 0, remaining: Infinity, purchasedCredits: 0 }
+      return { allowed: true, paymentEnabled: false, total: Infinity, freeUsed: 0, freeRemaining: Infinity, purchasedUsed: 0, purchasedRemaining: Infinity, used: 0, remaining: Infinity, purchasedCredits: 0 }
     }
 
     const freeCredits = await getFreeCredits()
-    const purchasedCredits = await getPurchasedCredits(userId)
-    const totalCredits = freeCredits + purchasedCredits
 
-    const [rows] = await pool.execute(
+    // 免费额度 — 始终按 IP 计算
+    const [freeRows] = await pool.execute(
       "SELECT COUNT(*) AS used FROM credits_log WHERE user_identifier = ?",
-      [userId]
+      [ip]
     ) as any[]
+    const freeUsed = Number(freeRows[0]?.used) || 0
+    const freeRemaining = Math.max(0, freeCredits - freeUsed)
 
-    const used = Number(rows[0]?.used) || 0
-    const remaining = Math.max(0, totalCredits - used)
+    // 充值额度 — 仅登录用户（userId 是纯数字）计算
+    const isLoggedIn = /^\d+$/.test(userId)
+    let purchasedCredits = 0
+    let purchasedUsed = 0
+    let purchasedRemaining = 0
+    if (isLoggedIn) {
+      purchasedCredits = await getPurchasedCredits(userId)
+      const [userRows] = await pool.execute(
+        "SELECT COUNT(*) AS used FROM credits_log WHERE user_identifier = ?",
+        [userId]
+      ) as any[]
+      purchasedUsed = Number(userRows[0]?.used) || 0
+      purchasedRemaining = Math.max(0, purchasedCredits - purchasedUsed)
+    }
+
+    const totalCredits = freeCredits + purchasedCredits
+    const totalUsed = freeUsed + purchasedUsed
+    const totalRemaining = freeRemaining + purchasedRemaining
 
     return {
-      allowed: remaining > 0,
+      allowed: totalRemaining > 0,
       paymentEnabled: true,
       total: freeCredits,
-      used,
-      remaining,
+      freeUsed,
+      freeRemaining,
+      purchasedUsed,
+      purchasedRemaining,
+      used: totalUsed,
+      remaining: totalRemaining,
       purchasedCredits,
     }
   } catch {
-    // DB 不可用时不阻塞生成
-    return { allowed: true, paymentEnabled: false, total: Infinity, used: 0, remaining: Infinity, purchasedCredits: 0 }
+    return { allowed: true, paymentEnabled: false, total: Infinity, freeUsed: 0, freeRemaining: Infinity, purchasedUsed: 0, purchasedRemaining: Infinity, used: 0, remaining: Infinity, purchasedCredits: 0 }
   }
 }
 
 /**
  * 记录一次使用（生成成功后调用）
+ * 登录用户写 user_id 到 credits_log（计充值额度），
+ * 同时写一条 IP 记录（计免费额度）。
  */
 export async function deductCredits(
   userId: string,
+  ip: string,
   action: string = "generate"
 ): Promise<CreditsResult> {
   try {
+    // 始终写 IP 记录（扣免费额度）
     await pool.execute(
       "INSERT INTO credits_log (user_identifier, action, credits_used) VALUES (?, ?, 1)",
-      [userId, action]
+      [ip, action]
     )
 
-    // 返回更新后的状态
-    const freeCredits = await getFreeCredits()
-    const purchasedCredits = await getPurchasedCredits(userId)
-    const totalCredits = freeCredits + purchasedCredits
-
-    const [rows] = await pool.execute(
-      "SELECT COUNT(*) AS used FROM credits_log WHERE user_identifier = ?",
-      [userId]
-    ) as any[]
-
-    const used = Number(rows[0]?.used) || 0
-    const remaining = Math.max(0, totalCredits - used)
-
-    return {
-      allowed: remaining > 0,
-      paymentEnabled: true,
-      total: freeCredits,
-      used,
-      remaining,
-      purchasedCredits,
+    // 登录用户额外写 user_id 记录（扣充值额度）
+    const isLoggedIn = /^\d+$/.test(userId)
+    if (isLoggedIn) {
+      await pool.execute(
+        "INSERT INTO credits_log (user_identifier, action, credits_used) VALUES (?, ?, 1)",
+        [userId, action]
+      )
     }
+
+    // 返回更新后状态
+    return checkCredits(userId, ip)
   } catch {
-    return { allowed: true, paymentEnabled: false, total: Infinity, used: 0, remaining: Infinity, purchasedCredits: 0 }
+    return { allowed: true, paymentEnabled: false, total: Infinity, freeUsed: 0, freeRemaining: Infinity, purchasedUsed: 0, purchasedRemaining: Infinity, used: 0, remaining: Infinity, purchasedCredits: 0 }
   }
 }
