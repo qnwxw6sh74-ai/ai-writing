@@ -34,7 +34,7 @@ interface CacheEntry {
 }
 
 // ===== 缓存 =====
-const CACHE_TTL_MS = 5 * 60_000
+const CACHE_TTL_MS = 30 * 60_000
 let cache: CacheEntry | null = null
 
 function getCache(): CacheEntry | null {

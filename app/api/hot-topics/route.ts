@@ -6,7 +6,7 @@ export async function GET() {
     const data = await getHotTopics()
     return NextResponse.json(data, {
       headers: {
-        "Cache-Control": "public, max-age=300, s-maxage=300",
+        "Cache-Control": "public, max-age=1800, s-maxage=1800",
       },
     })
   } catch (error) {
