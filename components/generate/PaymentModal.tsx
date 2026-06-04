@@ -53,7 +53,10 @@ export function PaymentModal({ open, onClose, onPaid }: Props) {
         return
       }
 
-      if (data.payPageUrl) window.open(data.payPageUrl, "_blank")
+      if (data.payPageUrl) {
+        const w = window.open(data.payPageUrl, "_blank")
+        if (!w) setResult({ message: `支付页面被浏览器拦截，请手动打开：${data.payPageUrl}` })
+      }
       if (data.payId) startPoll(data.payId, data.orderId || data.payId)
     } catch {
       setResult({ message: "网络错误" })
@@ -102,7 +105,7 @@ export function PaymentModal({ open, onClose, onPaid }: Props) {
             </h2>
             <p className="text-xs text-zinc-500 mt-0.5">选择套餐，微信扫码支付</p>
           </div>
-          <button onClick={onClose} className="p-1 text-zinc-500 hover:text-white transition-colors">
+          <button type="button" onClick={onClose} title="关闭" className="p-1 text-zinc-500 hover:text-white transition-colors">
             <X size={20} />
           </button>
         </div>

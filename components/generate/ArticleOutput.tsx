@@ -30,7 +30,12 @@ export function ArticleOutput({ content, contentB, title, credits, onCreditsChan
   const [activeTab, setActiveTab] = useState<"A" | "B">("A")
   const hasDual = !!contentB
   const currentContent = activeTab === "B" && contentB ? contentB : content
-  const articleHash = useRef(btoa(unescape(encodeURIComponent(currentContent.slice(0, 100))))).current
+  // 每个版本独立追踪改写次数
+  const articleHash = useRef<{ A: string; B: string }>({
+    A: btoa(unescape(encodeURIComponent(content.slice(0, 100)))),
+    B: contentB ? btoa(unescape(encodeURIComponent(contentB.slice(0, 100)))) : "",
+  }).current
+  const activeHash = activeTab === "B" && articleHash.B ? articleHash.B : articleHash.A
 
   const handleConfirm = async () => {
     setConfirming(true)
@@ -185,7 +190,7 @@ export function ArticleOutput({ content, contentB, title, credits, onCreditsChan
         <ArticleEditor key={activeTab} content={currentContent} />
         <RewriteToolbar
           containerRef={editorRef}
-          articleHash={articleHash}
+          articleHash={activeHash}
           onReplace={handleReplace}
         />
       </div>

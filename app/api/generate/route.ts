@@ -51,7 +51,43 @@ export async function POST(request: NextRequest) {
 
     const mockMode = process.env.MOCK_AI === "true"
     let content: string | null = null
+    let contentB: string | null = null
     let fromCache = false
+
+    // === 构建 prompt（缓存命中时双版本也需要）===
+    let systemPrompt = "你是公众号爆文创作者。"
+    let userPrompt = `主题"${keyword}"，${style || "情感共鸣"}风格，${wordCount || 1500}字公众号文章。要求：金句频出、段落分明、结尾引互动。`
+
+    try {
+      const [rows] = await pool.execute(
+        "SELECT system_prompt, user_prompt_template FROM prompt_templates WHERE type = 'article' AND is_active = 1 AND (domain = ? OR domain = '通用') ORDER BY sort_order LIMIT 1",
+        [domain || "通用"]
+      ) as any[]
+      if (rows.length > 0) {
+        systemPrompt = rows[0].system_prompt || systemPrompt
+        userPrompt = (rows[0].user_prompt_template || userPrompt)
+          .replace(/{keyword}/g, keyword)
+          .replace(/{style}/g, style || "情感共鸣")
+          .replace(/{wordCount}/g, String(wordCount || 1500))
+          .replace(/{domain}/g, domain || "通用")
+      }
+    } catch { /* DB 不可用，用默认 prompt */ }
+
+    // 读取用户风格档案
+    const styleKey = `user_style_${userId.replace(/[^a-zA-Z0-9_-]/g, "_")}`
+    try {
+      const [styleRows] = await pool.execute(
+        "SELECT `value` FROM site_config WHERE `key` = ?",
+        [styleKey]
+      ) as any[]
+      if (styleRows.length > 0 && styleRows[0].value) {
+        const styleProfile = JSON.parse(styleRows[0].value)
+        const styleDesc = Object.entries(styleProfile)
+          .map(([k, v]) => `- ${k}: ${v}`)
+          .join("\n")
+        systemPrompt = `${systemPrompt}\n\n【用户风格要求——请严格按以下风格写作】\n${styleDesc}`
+      }
+    } catch { /* 无风格档案 */ }
 
     // === 缓存查询 ===
     if (!mockMode) {
@@ -61,50 +97,10 @@ export async function POST(request: NextRequest) {
 
     // === 真实 AI 模式 ===
     if (!mockMode && !content) {
-      let systemPrompt = "你是公众号爆文创作者。"
-      let userPrompt = `主题"${keyword}"，${style || "情感共鸣"}风格，${wordCount || 1500}字公众号文章。要求：金句频出、段落分明、结尾引互动。`
-
-      try {
-        const [rows] = await pool.execute(
-          "SELECT system_prompt, user_prompt_template FROM prompt_templates WHERE type = 'article' AND is_active = 1 AND (domain = ? OR domain = '通用') ORDER BY sort_order LIMIT 1",
-          [domain || "通用"]
-        ) as any[]
-        if (rows.length > 0) {
-          systemPrompt = rows[0].system_prompt || systemPrompt
-          userPrompt = (rows[0].user_prompt_template || userPrompt)
-            .replace(/{keyword}/g, keyword)
-            .replace(/{style}/g, style || "情感共鸣")
-            .replace(/{wordCount}/g, String(wordCount || 1500))
-            .replace(/{domain}/g, domain || "通用")
-        }
-      } catch { /* DB 不可用，用默认 prompt */ }
-
-      // 读取用户风格档案
-      const styleKey = `user_style_${userId.replace(/[^a-zA-Z0-9_-]/g, "_")}`
-      let styleProfile: Record<string, string> | null = null
-      try {
-        const [styleRows] = await pool.execute(
-          "SELECT `value` FROM site_config WHERE `key` = ?",
-          [styleKey]
-        ) as any[]
-        if (styleRows.length > 0 && styleRows[0].value) {
-          styleProfile = JSON.parse(styleRows[0].value)
-        }
-      } catch { /* 无风格档案 */ }
-
-      // 将风格注入 system prompt
-      if (styleProfile) {
-        const styleDesc = Object.entries(styleProfile)
-          .map(([k, v]) => `- ${k}: ${v}`)
-          .join("\n")
-        systemPrompt = `${systemPrompt}\n\n【用户风格要求——请严格按以下风格写作】\n${styleDesc}`
-      }
-
       content = await generateArticle(systemPrompt, userPrompt, modelOverrides)
     }
 
-    // === 双版本：并行生成第二版 ===
-    let contentB: string | null = null
+    // === 双版本：B 版（有 userPrompt 无论缓存命中与否）===
     if (isDual && content) {
       const altPrompt = `${userPrompt}\n\n【换一个叙事角度和文风，与上一版形成明显差异】`
       contentB = await generateArticle(systemPrompt, altPrompt, modelOverrides)

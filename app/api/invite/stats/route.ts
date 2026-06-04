@@ -38,15 +38,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 统计成功邀请数（对方已邮箱验证）
-    const [statsRows] = await pool.execute(
-      "SELECT COUNT(*) AS cnt FROM users WHERE id IN (SELECT id FROM users WHERE email_verified = 1) AND invite_code IS NOT NULL",
-      []
-    ) as any[]
-    // 简化：统计通过邀请码注册的人数
+    // 统计成功邀请数：邀请奖励共 3 次/人，总奖励次数 / 3 = 邀请人数
     const [invitedRows] = await pool.execute(
-      "SELECT COUNT(*) AS cnt FROM credits_recharge WHERE user_identifier IN (SELECT CAST(id AS CHAR) FROM users WHERE invite_code = ?) AND user_identifier != ?",
-      [inviteCode, userId]
+      `SELECT COUNT(*) AS cnt FROM credits_recharge
+       WHERE user_identifier = ? AND credits_added = 3`,
+      [String(userId)]
     ) as any[]
 
     const invitedCount = Number(invitedRows[0]?.cnt) || 0
