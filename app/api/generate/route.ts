@@ -104,34 +104,28 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // === 每5次生成自动扣1次（2分钟冷却）===
+    // === 登录用户每5次生成自动扣1次（无冷却）===
     let autoDeducted = false
     if (/^\d+$/.test(userId)) {
       try {
-        // 更新 gen_count
         await pool.execute(
           "UPDATE users SET gen_count = gen_count + 1 WHERE id = ?",
           [parseInt(userId)]
         )
 
-        // 检查是否触发自动扣费
         const [genRows] = await pool.execute(
-          "SELECT gen_count, gen_cooldown_until FROM users WHERE id = ?",
+          "SELECT gen_count FROM users WHERE id = ?",
           [parseInt(userId)]
         ) as any[]
         const genCount = Number(genRows[0]?.gen_count) || 0
-        const cooldownUntil = genRows[0]?.gen_cooldown_until
-        const now = new Date()
 
-        if (genCount >= 5 && (!cooldownUntil || new Date(cooldownUntil) <= now)) {
-          // 自动扣1次
+        if (genCount >= 5) {
           await pool.execute(
             "INSERT INTO credits_log (user_identifier, action, credits_used) VALUES (?, 'auto_gen5', 1)",
             [userId]
           )
-          // 重置计数 + 设置冷却
           await pool.execute(
-            "UPDATE users SET gen_count = 0, gen_cooldown_until = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE id = ?",
+            "UPDATE users SET gen_count = 0 WHERE id = ?",
             [parseInt(userId)]
           )
           autoDeducted = true
@@ -139,7 +133,7 @@ export async function POST(request: NextRequest) {
       } catch { /* gen_count 更新失败不影响主流程 */ }
     }
 
-    // === IP 用户每3次生成自动扣1次（2分钟冷却）===
+    // === IP 用户每3次生成自动扣1次（无冷却）===
     if (!/^\d+$/.test(userId)) {
       try {
         if (checkIPAutoDeduct(ip)) {
