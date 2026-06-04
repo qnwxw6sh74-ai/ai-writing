@@ -7,6 +7,7 @@ interface Props {
   isLoading: boolean
   cooldownSeconds?: number
   models?: { id: number; name: string }[]
+  initialKeyword?: string
 }
 
 const domains = ["情感", "职场", "教育", "科技", "养生", "娱乐", "财经", "法律", "历史", "美食"]
@@ -17,8 +18,8 @@ const wordCounts = [
   { label: "长文 (~2500字)", value: 2500 },
 ]
 
-export function ArticleForm({ onGenerate, isLoading, cooldownSeconds, models }: Props) {
-  const [keyword, setKeyword] = useState("")
+export function ArticleForm({ onGenerate, isLoading, cooldownSeconds, models, initialKeyword = "" }: Props) {
+  const [keyword, setKeyword] = useState(initialKeyword)
   const [domain, setDomain] = useState("情感")
   const [style, setStyle] = useState("情感共鸣")
   const [wordCount, setWordCount] = useState(1500)

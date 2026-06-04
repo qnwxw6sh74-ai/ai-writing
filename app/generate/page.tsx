@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArticleForm } from "@/components/generate/ArticleForm"
 import { ArticleOutput } from "@/components/generate/ArticleOutput"
@@ -33,6 +34,8 @@ export default function GeneratePage() {
   const [models, setModels] = useState<{ id: number; name: string }[]>([])
   const [cooldownSeconds, setCooldownSeconds] = useState(0)
   const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const searchParams = useSearchParams()
+  const initialKeyword = searchParams.get("keyword") || ""
 
   // 冷却倒计时
   const startCooldown = useCallback((seconds: number) => {
@@ -186,7 +189,7 @@ export default function GeneratePage() {
               )}
             </div>
 
-            <ArticleForm onGenerate={handleGenerate} isLoading={isLoading} cooldownSeconds={cooldownSeconds} models={models} />
+            <ArticleForm onGenerate={handleGenerate} isLoading={isLoading} cooldownSeconds={cooldownSeconds} models={models} initialKeyword={initialKeyword} />
 
             {isLoading && (
               <div className="mt-6 bg-zinc-900/50 rounded-xl border border-zinc-800 p-12 text-center">
