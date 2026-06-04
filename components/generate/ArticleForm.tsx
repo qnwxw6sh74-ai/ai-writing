@@ -3,7 +3,7 @@
 import { useState } from "react"
 
 interface Props {
-  onGenerate: (params: { keyword: string; domain: string; style: string; wordCount: number; modelId?: number }) => void
+  onGenerate: (params: { keyword: string; domain: string; style: string; wordCount: number; modelId?: number; dual?: boolean }) => void
   isLoading: boolean
   cooldownSeconds?: number
   models?: { id: number; name: string }[]
@@ -23,11 +23,12 @@ export function ArticleForm({ onGenerate, isLoading, cooldownSeconds, models }: 
   const [style, setStyle] = useState("情感共鸣")
   const [wordCount, setWordCount] = useState(1500)
   const [modelId, setModelId] = useState<number | undefined>(undefined)
+  const [dual, setDual] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!keyword.trim()) return
-    onGenerate({ keyword: keyword.trim(), domain, style, wordCount, modelId })
+    onGenerate({ keyword: keyword.trim(), domain, style, wordCount, modelId, dual })
   }
 
   const selectClasses = "w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
@@ -86,6 +87,18 @@ export function ArticleForm({ onGenerate, isLoading, cooldownSeconds, models }: 
           </div>
         )}
       </div>
+
+      {/* 双版本开关 */}
+      <label className="flex items-center gap-2 cursor-pointer text-sm">
+        <input
+          type="checkbox"
+          checked={dual}
+          onChange={(e) => setDual(e.target.checked)}
+          className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 accent-red-500"
+        />
+        <span className="text-zinc-400">生成双版本</span>
+        <span className="text-[10px] text-zinc-600">（并行生成A/B两稿，选一确认，仅扣1次额度）</span>
+      </label>
 
       <button
         type="submit"

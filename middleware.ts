@@ -110,6 +110,8 @@ export const config = {
     "/api/article/rewrite",
     "/api/history",
     "/api/hot-topics",
+    "/api/invite/:path*",
+    "/api/plans",
     "/admin/:path*",
     "/style-lab",
     "/style-lab/:path*",

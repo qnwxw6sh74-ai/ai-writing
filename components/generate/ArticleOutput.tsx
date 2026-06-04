@@ -15,18 +15,22 @@ interface CreditsInfo {
 
 interface Props {
   content: string
+  contentB?: string
   title?: string
   credits?: CreditsInfo | null
   onCreditsChange?: (c: CreditsInfo) => void
   onConfirm?: () => void
 }
 
-export function ArticleOutput({ content, title, credits, onCreditsChange, onConfirm }: Props) {
+export function ArticleOutput({ content, contentB, title, credits, onCreditsChange, onConfirm }: Props) {
   const editorRef = useRef<HTMLDivElement>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [confirmError, setConfirmError] = useState("")
-  const articleHash = useRef(btoa(unescape(encodeURIComponent(content.slice(0, 100))))).current
+  const [activeTab, setActiveTab] = useState<"A" | "B">("A")
+  const hasDual = !!contentB
+  const currentContent = activeTab === "B" && contentB ? contentB : content
+  const articleHash = useRef(btoa(unescape(encodeURIComponent(currentContent.slice(0, 100))))).current
 
   const handleConfirm = async () => {
     setConfirming(true)
@@ -107,6 +111,21 @@ export function ArticleOutput({ content, title, credits, onCreditsChange, onConf
           </div>
         )}
 
+        {/* AB 版本切换（locked）*/}
+        {hasDual && (
+          <div className="flex border-b border-zinc-800">
+            {(["A", "B"] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === tab ? "border-red-500 text-red-400" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}
+              >
+                {tab === "A" ? "📝 A版" : "✏️ B版"}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* 锁定内容区 — 可阅读，但不可选中/复制/右键 */}
         <div
           className="p-6 select-none pointer-events-none"
@@ -114,7 +133,7 @@ export function ArticleOutput({ content, title, credits, onCreditsChange, onConf
           onContextMenu={(e) => e.preventDefault()}
         >
           <div className="prose max-w-none whitespace-pre-wrap leading-relaxed text-zinc-300">
-            {content}
+            {currentContent}
           </div>
         </div>
 
@@ -148,8 +167,22 @@ export function ArticleOutput({ content, title, credits, onCreditsChange, onConf
         <ExportMenu content={content} editorRef={editorRef} />
       </div>
 
+      {hasDual && (
+        <div className="flex border-b border-zinc-800">
+          {(["A", "B"] as const).map(tab => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === tab ? "border-red-500 text-red-400" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}
+            >
+              {tab === "A" ? "📝 A版" : "✏️ B版"}
+            </button>
+          ))}
+        </div>
+      )}
       <div ref={editorRef} className="relative">
-        <ArticleEditor content={content} />
+        <ArticleEditor key={activeTab} content={currentContent} />
         <RewriteToolbar
           containerRef={editorRef}
           articleHash={articleHash}

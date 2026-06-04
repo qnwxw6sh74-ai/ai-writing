@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { User, Settings, Key, Save, ArrowLeft, History, FileText, Download, Upload, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { User, Settings, Key, Save, ArrowLeft, History, FileText, Download, Upload, Trash2, ChevronLeft, ChevronRight, Gift, Copy, Check } from 'lucide-react'
 
 interface HistoryItem {
   id: number
@@ -56,9 +56,34 @@ export default function ProfilePage() {
   const [historyTotal, setHistoryTotal] = useState(0)
   const [historyLoading, setHistoryLoading] = useState(false)
 
+  // 邀请
+  const [inviteCode, setInviteCode] = useState('')
+  const [inviteUrl, setInviteUrl] = useState('')
+  const [invitedCount, setInvitedCount] = useState(0)
+  const [inviteCopied, setInviteCopied] = useState(false)
+
   useEffect(() => {
     fetchProfile()
+    fetchInvite()
   }, [])
+
+  const fetchInvite = async () => {
+    try {
+      const res = await fetch('/api/invite/stats')
+      if (res.ok) {
+        const data = await res.json()
+        setInviteCode(data.inviteCode || '')
+        setInviteUrl(data.inviteUrl || '')
+        setInvitedCount(data.invitedCount || 0)
+      }
+    } catch { /* */ }
+  }
+
+  const copyInvite = () => {
+    navigator.clipboard.writeText(inviteUrl)
+    setInviteCopied(true)
+    setTimeout(() => setInviteCopied(false), 2000)
+  }
 
   useEffect(() => {
     if (tab === 'history') fetchHistory()
@@ -255,6 +280,28 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* 邀请 */}
+        {inviteCode && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
+            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+              <Gift size={18} className="text-yellow-400" /> 邀请好友
+            </h3>
+            <p className="text-sm text-zinc-400 mb-3">
+              邀请好友注册，双方各得 <span className="text-yellow-400 font-bold">3 次</span> 充值额度 · 已成功邀请 <span className="text-yellow-400 font-bold">{invitedCount}</span> 人
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-300 break-all">{inviteUrl}</code>
+              <button
+                onClick={copyInvite}
+                className="flex items-center gap-1 text-sm bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-lg transition-colors shrink-0"
+              >
+                {inviteCopied ? <Check size={14} /> : <Copy size={14} />}
+                {inviteCopied ? '已复制' : '复制'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 编辑资料 */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">

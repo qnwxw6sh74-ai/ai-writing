@@ -25,6 +25,7 @@ const quickLinks = [
 
 export default function GeneratePage() {
   const [content, setContent] = useState("")
+  const [contentB, setContentB] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [credits, setCredits] = useState<CreditsInfo | null>(null)
   const [showBuyTip, setShowBuyTip] = useState(false)
@@ -75,6 +76,7 @@ export default function GeneratePage() {
 
     setIsLoading(true)
     setContent("")
+    setContentB("")
     setShowBuyTip(false)
     setErrorMsg("")
 
@@ -107,6 +109,7 @@ export default function GeneratePage() {
 
       if (data.content) {
         setContent(data.content)
+        if (data.contentB) setContentB(data.contentB)
         startCooldown(90) // 生成成功自动开始90秒冷却
       } else {
         setErrorMsg("AI 返回为空，请换个关键词试试")
@@ -199,6 +202,7 @@ export default function GeneratePage() {
             {content && (
               <ArticleOutput
                 content={content}
+                contentB={contentB || undefined}
                 credits={credits}
                 onCreditsChange={(c) => setCredits((prev) => prev ? { ...prev, ...c } : prev)}
                 onConfirm={() => { setCooldownSeconds(0); if (cooldownTimer.current) { clearInterval(cooldownTimer.current); cooldownTimer.current = null } }}

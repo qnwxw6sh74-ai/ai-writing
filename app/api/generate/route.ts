@@ -9,7 +9,8 @@ import pool from "@/lib/db"
 
 export async function POST(request: NextRequest) {
   try {
-    const { keyword, domain, style, wordCount, modelId } = await request.json()
+    const { keyword, domain, style, wordCount, modelId, dual } = await request.json()
+    const isDual = dual === true
 
     if (!keyword) {
       return NextResponse.json({ error: "关键词不能为空" }, { status: 400 })
@@ -60,8 +61,8 @@ export async function POST(request: NextRequest) {
 
     // === 真实 AI 模式 ===
     if (!mockMode && !content) {
-      let systemPrompt = "你是一个专业的公众号文章写手，擅长创作引爆朋友圈的优质内容。"
-      let userPrompt = `请以"${keyword}"为主题，写一篇${style || "情感共鸣"}风格的公众号文章，字数约${wordCount || 1500}字。要求：结构清晰、金句频出、段落分明、结尾引导互动。`
+      let systemPrompt = "你是公众号爆文创作者。"
+      let userPrompt = `主题"${keyword}"，${style || "情感共鸣"}风格，${wordCount || 1500}字公众号文章。要求：金句频出、段落分明、结尾引互动。`
 
       try {
         const [rows] = await pool.execute(
@@ -102,6 +103,13 @@ export async function POST(request: NextRequest) {
       content = await generateArticle(systemPrompt, userPrompt, modelOverrides)
     }
 
+    // === 双版本：并行生成第二版 ===
+    let contentB: string | null = null
+    if (isDual && content) {
+      const altPrompt = `${userPrompt}\n\n【换一个叙事角度和文风，与上一版形成明显差异】`
+      contentB = await generateArticle(systemPrompt, altPrompt, modelOverrides)
+    }
+
     // === AI 失败或 Mock 模式 ===
     if (!content) {
       content = generateMockArticle({
@@ -111,8 +119,16 @@ export async function POST(request: NextRequest) {
         wordCount: wordCount || 1500,
       })
     }
+    if (isDual && !contentB) {
+      contentB = generateMockArticle({
+        keyword: keyword + "（另一角度）",
+        domain: domain || "情感",
+        style: style === "情感共鸣" ? "干货实用" : "情感共鸣",
+        wordCount: wordCount || 1500,
+      })
+    }
 
-    // === 写入缓存（真实 AI 结果才缓存）===
+    // === 写入缓存（真实 AI 结果才缓存，仅缓存 A 版）===
     if (!fromCache && content && !mockMode) {
       setCached(keyword, domain || "", style || "", content)
     }
@@ -173,7 +189,13 @@ export async function POST(request: NextRequest) {
       )
     } catch { /* DB 不可用 */ }
 
-    return NextResponse.json({ content, credits: updatedCredits, autoDeducted })
+    return NextResponse.json({
+      content,
+      contentB: contentB || undefined,
+      credits: updatedCredits,
+      autoDeducted,
+      dual: isDual,
+    })
   } catch (error) {
     console.error("Generate error:", error)
     return NextResponse.json({ error: "生成失败，请稍后重试" }, { status: 500 })

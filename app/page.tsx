@@ -1,5 +1,12 @@
+import type { Metadata } from "next"
 import { getConfigs } from "@/lib/config"
 import { HomeClient } from "@/components/home/HomeClient"
+
+export const metadata: Metadata = {
+  title: "公众号爆文生成器 — AI智能写作助手，一键生成高质量原创文章",
+  description: "专业的AI公众号文章生成工具，覆盖情感、职场、教育等30+领域。输入关键词，秒级生成爆款文章、黄金标题，助你轻松产出10W+爆文。",
+  keywords: "AI写作,公众号爆文,文章生成器,自媒体助手,智能写作,公众号写作,内容创作,AI生成文章",
+}
 
 // 默认静态数据（数据库不可用时的降级方案）
 const defaults = {

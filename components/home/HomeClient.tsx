@@ -6,6 +6,7 @@ import { FeatureCards } from "@/components/home/FeatureCards"
 import { HowToUse } from "@/components/home/HowToUse"
 import { TemplateSection } from "@/components/home/TemplateSection"
 import { Testimonials } from "@/components/home/Testimonials"
+import { HotKeywords } from "@/components/home/HotKeywords"
 
 interface Slide { title: string; highlight: string; suffix: string; description: string; accent: string; btnBorder: string; highlightColor: string; subColor: string; btnText: string; href: string; subText?: string }
 interface LinkItem { emoji: string; label: string; href: string; external?: boolean }
@@ -31,6 +32,7 @@ export function HomeClient(props: Props) {
   return (
     <div className="bg-zinc-950">
       <HeroCarousel slides={home_hero_slides} quickLinks={home_hero_links} />
+      <HotKeywords />
       <HowToUse title={home_steps.title} steps={home_steps.items} ctaText={home_steps.ctaText} ctaHref={home_steps.ctaHref} />
       <FeatureCards title={home_features.title} subtitle={home_features.subtitle} items={home_features.items} />
       <TemplateSection title={home_templates.title} items={home_templates.items} moreText={home_templates.moreText} moreHref={home_templates.moreHref} />

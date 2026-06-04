@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import pool from '@/lib/db'
 import { hashPassword, sendVerificationEmail, generateVerificationToken, getUserByEmail } from '@/lib/auth-user'
 
+function generateInviteCode(): string {
+  return crypto.randomBytes(4).toString('hex').slice(0, 6) // 6位随机码
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, nickname } = await request.json()
+    const { email, password, nickname, inviteCode } = await request.json()
 
     if (!email || !password) {
       return NextResponse.json({ error: '邮箱和密码不能为空' }, { status: 400 })
@@ -19,7 +24,6 @@ export async function POST(request: NextRequest) {
     const existing = await getUserByEmail(emailLower)
     if (existing) {
       if (!existing.email_verified) {
-        // 未验证 → 重发验证邮件
         const token = existing.verification_token || generateVerificationToken()
         await pool.execute(
           'UPDATE users SET verification_token = ?, verification_sent_at = NOW() WHERE id = ?',
@@ -35,15 +39,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '该邮箱已被注册' }, { status: 409 })
     }
 
+    // 处理邀请码 — 提前解析，避免二次查询
+    let inviterId: number | null = null
+    if (inviteCode && typeof inviteCode === 'string' && inviteCode.trim()) {
+      try {
+        const [rows] = await pool.execute(
+          'SELECT id FROM users WHERE invite_code = ?',
+          [inviteCode.trim()]
+        ) as any[]
+        if (rows.length > 0) inviterId = rows[0].id
+      } catch { /* 邀请查询失败不影响注册 */ }
+    }
+
     // 创建用户
     const passwordHash = await hashPassword(password)
     const verificationToken = generateVerificationToken()
+    const code = generateInviteCode()
 
-    await pool.execute(
-      `INSERT INTO users (email, password_hash, nickname, email_verified, verification_token, verification_sent_at)
-       VALUES (?, ?, ?, 0, ?, NOW())`,
-      [emailLower, passwordHash, nickname || emailLower.split('@')[0], verificationToken]
-    )
+    const [result] = await pool.execute(
+      `INSERT INTO users (email, password_hash, nickname, email_verified, verification_token, verification_sent_at, invite_code)
+       VALUES (?, ?, ?, 0, ?, NOW(), ?)`,
+      [emailLower, passwordHash, nickname || emailLower.split('@')[0], verificationToken, code]
+    ) as any[]
+    const newUserId = result.insertId
+
+    // 发放邀请奖励（双方各 +3 充值额度）
+    if (inviterId) {
+      try {
+        await pool.execute(
+          "INSERT INTO credits_recharge (user_identifier, credits_added) VALUES (?, 3)",
+          [String(inviterId)]
+        )
+        await pool.execute(
+          "INSERT INTO credits_recharge (user_identifier, credits_added) VALUES (?, 3)",
+          [String(newUserId)]
+        )
+      } catch { /* 奖励发放失败不影响注册 */ }
+    }
 
     // 发送验证邮件
     const mailResult = await sendVerificationEmail(emailLower, verificationToken)
@@ -51,9 +83,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: mailResult.success
-        ? '注册成功！请查看邮箱完成验证'
+        ? (inviterId ? '注册成功！你和邀请者各获得3次额度。请查看邮箱完成验证' : '注册成功！请查看邮箱完成验证')
         : `注册成功，但验证邮件发送失败：${mailResult.message}`,
       mailSent: mailResult.success,
+      inviteCode: code,
     }, { status: 201 })
   } catch (error: any) {
     console.error('Register error:', error)

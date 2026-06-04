@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Download, FileText, FileCode2, FileArchive, Printer } from "lucide-react"
+import { Download, FileText, FileCode2, FileArchive, Printer, Smartphone, Copy, Check } from "lucide-react"
+import { processForWechat } from "@/lib/wechat-format"
 
 interface Props {
   /** 原始 markdown 或纯文本内容 */
@@ -12,6 +13,8 @@ interface Props {
 
 export function ExportMenu({ content, editorRef }: Props) {
   const [open, setOpen] = useState(false)
+  const [wechatCopied, setWechatCopied] = useState(false)
+  const [wechatWarnings, setWechatWarnings] = useState<string[]>([])
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -93,12 +96,25 @@ export function ExportMenu({ content, editorRef }: Props) {
     setOpen(false)
   }
 
+  /** 公众号排版并复制 */
+  const exportWechat = () => {
+    const text = getEditedText()
+    const { text: formatted, warnings } = processForWechat(text)
+    setWechatWarnings(warnings)
+    navigator.clipboard.writeText(formatted)
+    setWechatCopied(true)
+    setTimeout(() => setWechatCopied(false), 3000)
+    setOpen(false)
+  }
+
   const items = [
     { label: "纯文本 (.txt)", icon: FileText, onClick: exportTxt },
     { label: "Markdown (.md)", icon: FileCode2, onClick: exportMarkdown },
     { label: "Word (.docx)", icon: FileArchive, onClick: exportDocx },
     { label: "PDF 打印", icon: Printer, onClick: exportPdf },
+    { label: wechatCopied ? "已复制!" : "公众号排版", icon: wechatCopied ? Check : Smartphone, onClick: exportWechat },
   ]
+  const hasWarnings = wechatWarnings.length > 0
 
   return (
     <div ref={menuRef} className="relative">
@@ -123,6 +139,11 @@ export function ExportMenu({ content, editorRef }: Props) {
               {item.label}
             </button>
           ))}
+          {hasWarnings && (
+            <div className="px-4 py-2 text-xs text-yellow-400 border-t border-zinc-700">
+              ⚠️ 检测到敏感词：{wechatWarnings.join("、")}
+            </div>
+          )}
         </div>
       )}
     </div>
