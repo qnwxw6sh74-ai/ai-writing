@@ -62,49 +62,48 @@ async function fetchTencentTopics(): Promise<HotTopic[]> {
   })).filter((t: HotTopic) => t.title)
 }
 
-async function fetchWeiboTopics(): Promise<HotTopic[]> {
-  const res = await fetch(
-    "https://weibo.com/ajax/side/hotSearch",
-    { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(8000) }
-  )
-  if (!res.ok) throw new Error(`Weibo HTTP ${res.status}`)
-  const json = await res.json()
-  const items = json?.data?.realtime || []
-  return items.slice(0, 30).map((item: any, i: number) => ({
-    id: `wb_${item.word_scheme || i}`,
-    title: String(item.word || item.note || "").trim().replace(/#/g, ""),
-    rank: i + 1,
-    hotScore: Number(item.raw_hot || item.num || 0),
-    source: "weibo" as const,
-  })).filter((t: HotTopic) => t.title)
+async function fetchAggregatorTopics(): Promise<HotTopic[]> {
+  const all: HotTopic[] = []
+  try {
+    const res = await fetch("https://api.codelife.cc/api/top/list", {
+      headers: { "User-Agent": "Mozilla/5.0", Origin: "https://www.codelife.cc" },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) throw new Error(`Aggregator HTTP ${res.status}`)
+    const json = await res.json()
+    const dataList = json?.data || []
+    for (const list of dataList) {
+      const name = String(list?.name || "")
+      const items = list?.data || []
+      if (!items.length) continue
+      // 平台名映射到我们的 source 标签
+      let source: "weibo" | "douyin" | undefined
+      if (name.includes("微博")) source = "weibo"
+      else if (name.includes("抖音")) source = "douyin"
+      if (!source) continue
+      for (let i = 0; i < Math.min(items.length, 30); i++) {
+        const item = items[i]
+        const title = String(item?.title || item?.keyword || "").trim()
+        if (!title) continue
+        all.push({
+          id: `${source}_${i}`,
+          title,
+          rank: i + 1,
+          hotScore: Number(item?.hotScore || item?.count || 0),
+          source,
+        })
+      }
+    }
+  } catch {
+    // 聚合 API 挂了不阻塞其他源
+  }
+  if (all.length === 0) throw new Error("聚合 API 无数据")
+  return all
 }
 
 async function fetchDouyinTopics(): Promise<HotTopic[]> {
-  // 优先用 vvhan，挂了降级到 tenapi
-  const urls = [
-    "https://api.vvhan.com/api/hotlist/douyin",
-    "https://tenapi.cn/v2/douyinhot",
-  ]
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-        signal: AbortSignal.timeout(8000),
-      })
-      if (!res.ok) continue
-      const json = await res.json()
-      const items = json?.data || json?.list || []
-      if (!items.length) continue
-      return items.slice(0, 30).map((item: any, i: number) => ({
-        id: `dy_${item.word || item.title || i}`,
-        title: String(item.word || item.title || "").trim(),
-        rank: i + 1,
-        hotScore: Number(item.hot_value || item.hot || 0),
-        source: "douyin" as const,
-      })).filter((t: HotTopic) => t.title)
-    } catch { continue }
-  }
-  throw new Error("所有抖音 API 不可用")
+  // 保留为备用，聚合 API 已覆盖
+  throw new Error("已由聚合 API 接管")
 }
 
 // ===== 去重合并 =====
@@ -198,11 +197,10 @@ export async function getHotTopics(): Promise<{
     return { ...cached, isCached: true }
   }
 
-  // 并行拉三源
+  // 并行拉取：腾讯 + 聚合 API（含微博/抖音多平台）
   const sources_fns = [
     { name: "tencent", fn: fetchTencentTopics },
-    { name: "weibo", fn: fetchWeiboTopics },
-    { name: "douyin", fn: fetchDouyinTopics },
+    { name: "aggregator", fn: fetchAggregatorTopics },
   ] as const
 
   const results = await Promise.allSettled(sources_fns.map(s => s.fn()))
