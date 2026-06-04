@@ -5,6 +5,7 @@ import { useState } from "react"
 interface Props {
   onGenerate: (params: { keyword: string; domain: string; style: string; wordCount: number; modelId?: number }) => void
   isLoading: boolean
+  cooldownSeconds?: number
   models?: { id: number; name: string }[]
 }
 
@@ -16,7 +17,7 @@ const wordCounts = [
   { label: "长文 (~2500字)", value: 2500 },
 ]
 
-export function ArticleForm({ onGenerate, isLoading, models }: Props) {
+export function ArticleForm({ onGenerate, isLoading, cooldownSeconds, models }: Props) {
   const [keyword, setKeyword] = useState("")
   const [domain, setDomain] = useState("情感")
   const [style, setStyle] = useState("情感共鸣")
@@ -88,7 +89,7 @@ export function ArticleForm({ onGenerate, isLoading, models }: Props) {
 
       <button
         type="submit"
-        disabled={isLoading}
+        disabled={isLoading || (cooldownSeconds ?? 0) > 0}
         className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-red-900/20"
       >
         {isLoading ? (
@@ -99,6 +100,14 @@ export function ArticleForm({ onGenerate, isLoading, models }: Props) {
             </svg>
             AI正在创作中...
           </>
+        ) : (cooldownSeconds ?? 0) > 0 ? (
+          <span className="flex items-center gap-2">
+            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            冷却中 {cooldownSeconds} 秒
+          </span>
         ) : (
           "✍️ 开始生成爆文"
         )}

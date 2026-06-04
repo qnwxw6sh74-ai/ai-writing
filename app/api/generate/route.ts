@@ -3,7 +3,7 @@ import { generateMockArticle } from "@/lib/mock-ai"
 import { generateArticle } from "@/lib/ai-client"
 import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
-import { checkGenerateCooldown, recordGenerate } from "@/lib/rate-limit"
+import { checkGenerateCooldown, recordGenerate, checkIPAutoDeduct } from "@/lib/rate-limit"
 import pool from "@/lib/db"
 
 export async function POST(request: NextRequest) {
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const cooldown = checkGenerateCooldown(cooldownKey)
     if (!cooldown.allowed) {
       return NextResponse.json(
-        { error: `请先确认上一篇文章，或等待 ${cooldown.waitSeconds} 秒后再生成`, code: "COOLDOWN" },
+        { error: `请先确认上一篇文章，或等待 ${cooldown.waitSeconds} 秒后再生成`, code: "COOLDOWN", waitSeconds: cooldown.waitSeconds },
         { status: 429 }
       )
     }
@@ -137,6 +137,19 @@ export async function POST(request: NextRequest) {
           autoDeducted = true
         }
       } catch { /* gen_count 更新失败不影响主流程 */ }
+    }
+
+    // === IP 用户每3次生成自动扣1次（2分钟冷却）===
+    if (!/^\d+$/.test(userId)) {
+      try {
+        if (checkIPAutoDeduct(ip)) {
+          await pool.execute(
+            "INSERT INTO credits_log (user_identifier, action, credits_used) VALUES (?, 'auto_ip3', 1)",
+            [ip]
+          )
+          autoDeducted = true
+        }
+      } catch { /* IP 自动扣费失败不影响主流程 */ }
     }
 
     // 返回更新后的额度

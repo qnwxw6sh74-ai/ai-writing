@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { ArticleForm } from "@/components/generate/ArticleForm"
 import { ArticleOutput } from "@/components/generate/ArticleOutput"
@@ -29,6 +29,27 @@ export default function GeneratePage() {
   const [showBuyTip, setShowBuyTip] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
   const [models, setModels] = useState<{ id: number; name: string }[]>([])
+  const [cooldownSeconds, setCooldownSeconds] = useState(0)
+  const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // 冷却倒计时
+  const startCooldown = useCallback((seconds: number) => {
+    setCooldownSeconds(seconds)
+    if (cooldownTimer.current) clearInterval(cooldownTimer.current)
+    cooldownTimer.current = setInterval(() => {
+      setCooldownSeconds(prev => {
+        if (prev <= 1) {
+          if (cooldownTimer.current) { clearInterval(cooldownTimer.current); cooldownTimer.current = null }
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current) }
+  }, [])
 
   useEffect(() => {
     fetchCredits()
@@ -68,6 +89,13 @@ export default function GeneratePage() {
         // 额度用完 → 显示购买引导
         setShowBuyTip(true)
         setCredits(data.credits || { paymentEnabled: true, total: credits?.total || 3, used: credits?.total || 3, remaining: 0 })
+        return
+      }
+
+      if (res.status === 429 && data.code === "COOLDOWN") {
+        // 生成冷却中 → 启动倒计时
+        setErrorMsg(data.error)
+        if (data.waitSeconds) startCooldown(data.waitSeconds)
         return
       }
 
@@ -154,7 +182,7 @@ export default function GeneratePage() {
               )}
             </div>
 
-            <ArticleForm onGenerate={handleGenerate} isLoading={isLoading} models={models} />
+            <ArticleForm onGenerate={handleGenerate} isLoading={isLoading} cooldownSeconds={cooldownSeconds} models={models} />
 
             {isLoading && (
               <div className="mt-6 bg-zinc-900/50 rounded-xl border border-zinc-800 p-12 text-center">
@@ -172,6 +200,7 @@ export default function GeneratePage() {
                 content={content}
                 credits={credits}
                 onCreditsChange={(c) => setCredits((prev) => prev ? { ...prev, ...c } : prev)}
+                onConfirm={() => { setCooldownSeconds(0); if (cooldownTimer.current) { clearInterval(cooldownTimer.current); cooldownTimer.current = null } }}
               />
             )}
           </div>

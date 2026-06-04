@@ -18,9 +18,10 @@ interface Props {
   title?: string
   credits?: CreditsInfo | null
   onCreditsChange?: (c: CreditsInfo) => void
+  onConfirm?: () => void
 }
 
-export function ArticleOutput({ content, title, credits, onCreditsChange }: Props) {
+export function ArticleOutput({ content, title, credits, onCreditsChange, onConfirm }: Props) {
   const editorRef = useRef<HTMLDivElement>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -54,6 +55,7 @@ export function ArticleOutput({ content, title, credits, onCreditsChange }: Prop
 
       setConfirmed(true)
       onCreditsChange?.(data.credits)
+      onConfirm?.()
     } catch {
       setConfirmError("网络错误，请稍后重试")
     } finally {

@@ -87,9 +87,9 @@ export async function checkCredits(userId: string, ip: string): Promise<CreditsR
 
     const freeCredits = await getFreeCredits()
 
-    // 免费额度 — 始终按 IP 计算
+    // 免费额度 — 始终按 IP 计算（仅统计近90天）
     const [freeRows] = await pool.execute(
-      "SELECT COUNT(*) AS used FROM credits_log WHERE user_identifier = ?",
+      "SELECT COUNT(*) AS used FROM credits_log WHERE user_identifier = ? AND created_at > DATE_SUB(NOW(), INTERVAL 90 DAY)",
       [ip]
     ) as any[]
     const freeUsed = Number(freeRows[0]?.used) || 0
