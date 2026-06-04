@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { ArticleForm } from "@/components/generate/ArticleForm"
 import { ArticleOutput } from "@/components/generate/ArticleOutput"
+import { PaymentModal } from "@/components/generate/PaymentModal"
 
 interface CreditsInfo {
   paymentEnabled: boolean
@@ -167,13 +168,12 @@ export default function GeneratePage() {
                 )}
               </div>
 
-              {showBuyTip && (
-                <div className="mt-3 bg-red-950/30 border border-red-900/30 rounded-lg p-3 flex items-center justify-between">
-                  <span className="text-sm text-red-300">🎯 免费额度已用完，购买套餐即可继续使用</span>
-                  <Link href="/pricing" className="text-sm bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-500 transition-colors shrink-0">
-                    查看套餐
-                  </Link>
-                </div>
+              {showBuyTip && credits?.paymentEnabled && (
+                <PaymentModal
+                  open={showBuyTip}
+                  onClose={() => setShowBuyTip(false)}
+                  onPaid={() => { setShowBuyTip(false); fetchCredits() }}
+                />
               )}
 
               {errorMsg && (

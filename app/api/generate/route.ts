@@ -4,6 +4,7 @@ import { generateArticle } from "@/lib/ai-client"
 import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
 import { checkGenerateCooldown, recordGenerate, checkIPAutoDeduct } from "@/lib/rate-limit"
+import { getCached, setCached } from "@/lib/generate-cache"
 import pool from "@/lib/db"
 
 export async function POST(request: NextRequest) {
@@ -49,9 +50,16 @@ export async function POST(request: NextRequest) {
 
     const mockMode = process.env.MOCK_AI === "true"
     let content: string | null = null
+    let fromCache = false
+
+    // === 缓存查询 ===
+    if (!mockMode) {
+      content = getCached(keyword, domain || "", style || "")
+      if (content) fromCache = true
+    }
 
     // === 真实 AI 模式 ===
-    if (!mockMode) {
+    if (!mockMode && !content) {
       let systemPrompt = "你是一个专业的公众号文章写手，擅长创作引爆朋友圈的优质内容。"
       let userPrompt = `请以"${keyword}"为主题，写一篇${style || "情感共鸣"}风格的公众号文章，字数约${wordCount || 1500}字。要求：结构清晰、金句频出、段落分明、结尾引导互动。`
 
@@ -102,6 +110,11 @@ export async function POST(request: NextRequest) {
         style: style || "情感共鸣",
         wordCount: wordCount || 1500,
       })
+    }
+
+    // === 写入缓存（真实 AI 结果才缓存）===
+    if (!fromCache && content && !mockMode) {
+      setCached(keyword, domain || "", style || "", content)
     }
 
     // === 登录用户每5次生成自动扣1次（无冷却）===

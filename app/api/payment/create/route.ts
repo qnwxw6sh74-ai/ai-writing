@@ -20,13 +20,29 @@ export async function POST(request: NextRequest) {
 
     // 查询套餐信息，获取购买额度
     let creditsToAdd = 0
+    let isTrial = false
     try {
       const [planRows] = await pool.execute(
-        "SELECT credits FROM pricing_plans WHERE id = ? AND is_active = 1",
+        "SELECT credits, COALESCE(is_trial, 0) AS is_trial FROM pricing_plans WHERE id = ? AND is_active = 1",
         [planId || 0]
       ) as any[]
       if (planRows.length > 0) {
         creditsToAdd = planRows[0].credits || 0
+        isTrial = Number(planRows[0]?.is_trial) === 1
+      }
+
+      // 体验套餐仅限首次充值
+      if (isTrial) {
+        const [rechargeRows] = await pool.execute(
+          "SELECT COUNT(*) AS cnt FROM credits_recharge WHERE user_identifier = ?",
+          [userId]
+        ) as any[]
+        if (Number(rechargeRows[0]?.cnt) > 0) {
+          return NextResponse.json(
+            { error: "体验套餐仅限首次充值，请选择其他套餐", code: "TRIAL_USED" },
+            { status: 400 }
+          )
+        }
       }
     } catch { /* DB 不可用 */ }
 
