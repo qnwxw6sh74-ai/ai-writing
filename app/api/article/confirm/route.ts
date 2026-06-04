@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyUserToken } from "@/lib/auth-user"
 import { checkCredits, deductCredits, getUserIdentifier } from "@/lib/credits"
+import { confirmGenerate } from "@/lib/rate-limit"
 import pool from "@/lib/db"
 
 export async function POST(request: NextRequest) {
@@ -49,6 +50,9 @@ export async function POST(request: NextRequest) {
         wordCount || content.trim().length,
       ]
     )
+
+    // 解除生成冷却
+    confirmGenerate(userId)
 
     return NextResponse.json({
       success: true,

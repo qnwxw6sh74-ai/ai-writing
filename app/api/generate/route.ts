@@ -3,6 +3,7 @@ import { generateMockArticle } from "@/lib/mock-ai"
 import { generateArticle } from "@/lib/ai-client"
 import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
+import { checkGenerateCooldown, recordGenerate } from "@/lib/rate-limit"
 import pool from "@/lib/db"
 
 export async function POST(request: NextRequest) {
@@ -29,6 +30,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "免费额度已用完，请购买套餐继续使用", code: "NO_CREDITS" },
         { status: 402 }
+      )
+    }
+
+    // === 生成冷却检查（90秒，确认后解除）===
+    const cooldownKey = /^\d+$/.test(userId) ? userId : ip
+    const cooldown = checkGenerateCooldown(cooldownKey)
+    if (!cooldown.allowed) {
+      return NextResponse.json(
+        { error: `请先确认上一篇文章，或等待 ${cooldown.waitSeconds} 秒后再生成`, code: "COOLDOWN" },
+        { status: 429 }
       )
     }
 
@@ -130,6 +141,9 @@ export async function POST(request: NextRequest) {
 
     // 返回更新后的额度
     const updatedCredits = await checkCredits(userId, ip)
+
+    // 记录生成冷却
+    recordGenerate(cooldownKey)
 
     // 记录生成历史
     try {
