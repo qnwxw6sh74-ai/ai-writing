@@ -109,6 +109,7 @@ export const config = {
     "/api/article/confirm",
     "/api/article/rewrite",
     "/api/history",
+    "/api/hot-topics",
     "/admin/:path*",
     "/style-lab",
     "/style-lab/:path*",
@@ -116,5 +117,7 @@ export const config = {
     "/originality-check",
     "/profile",
     "/profile/:path*",
+    "/hot-topics",
+    "/hot-topics/:path*",
   ],
 }
