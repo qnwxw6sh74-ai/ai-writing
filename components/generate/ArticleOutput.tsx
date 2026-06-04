@@ -25,7 +25,7 @@ export function ArticleOutput({ content, title, credits, onCreditsChange }: Prop
   const [confirmed, setConfirmed] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [confirmError, setConfirmError] = useState("")
-  const articleHash = useRef(btoa(content.slice(0, 100))).current
+  const articleHash = useRef(btoa(unescape(encodeURIComponent(content.slice(0, 100))))).current
 
   const handleConfirm = async () => {
     setConfirming(true)
