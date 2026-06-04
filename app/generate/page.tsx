@@ -106,6 +106,7 @@ export default function GeneratePage() {
 
       if (data.content) {
         setContent(data.content)
+        startCooldown(90) // 生成成功自动开始90秒冷却
       } else {
         setErrorMsg("AI 返回为空，请换个关键词试试")
       }
