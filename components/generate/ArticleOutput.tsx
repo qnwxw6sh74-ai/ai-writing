@@ -105,20 +105,14 @@ export function ArticleOutput({ content, title, credits, onCreditsChange }: Prop
           </div>
         )}
 
-        {/* 锁定内容区 */}
+        {/* 锁定内容区 — 可阅读，但不可选中/复制/右键 */}
         <div
-          className="p-6 select-none pointer-events-none opacity-80"
+          className="p-6 select-none pointer-events-none"
           style={{ userSelect: "none" }}
           onContextMenu={(e) => e.preventDefault()}
         >
-          <div className="prose max-w-none whitespace-pre-wrap leading-relaxed text-zinc-400 blur-[2px]">
+          <div className="prose max-w-none whitespace-pre-wrap leading-relaxed text-zinc-300">
             {content}
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center text-zinc-500">
-              <Shield size={48} className="mx-auto mb-2 opacity-30" />
-              <p className="text-sm">点击上方按钮确认文章</p>
-            </div>
           </div>
         </div>
 
