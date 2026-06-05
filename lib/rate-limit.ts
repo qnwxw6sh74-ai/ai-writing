@@ -55,6 +55,55 @@ export function confirmGenerate(key: string) {
  * 记录一次 IP 生成，返回是否需要自动扣费
  * 每 3 次扣 1 次，无冷却时间
  */
+// ===== 认证频率限制（防暴力破解）=====
+
+const authTracker = new Map<string, { count: number; resetAt: number }>()
+
+const AUTH_LIMITS: Record<string, { max: number; windowMs: number }> = {
+  login: { max: 10, windowMs: 60_000 },
+  register: { max: 3, windowMs: 60_000 },
+  forgotPassword: { max: 2, windowMs: 60_000 },
+}
+
+/**
+ * 检查认证端点频率限制
+ * @param ip 客户端 IP
+ * @param endpoint 'login' | 'register' | 'forgotPassword'
+ * @returns allowed: 是否允许, retryAfter: 若被限，还需等待秒数
+ */
+export function checkAuthRateLimit(
+  ip: string,
+  endpoint: "login" | "register" | "forgotPassword"
+): { allowed: boolean; retryAfter: number } {
+  const limit = AUTH_LIMITS[endpoint]
+  const key = `${ip}:${endpoint}`
+  const now = Date.now()
+
+  let entry = authTracker.get(key)
+  if (!entry || now >= entry.resetAt) {
+    entry = { count: 1, resetAt: now + limit.windowMs }
+    authTracker.set(key, entry)
+    return { allowed: true, retryAfter: 0 }
+  }
+
+  entry.count++
+  if (entry.count > limit.max) {
+    return { allowed: false, retryAfter: Math.ceil((entry.resetAt - now) / 1000) }
+  }
+
+  return { allowed: true, retryAfter: 0 }
+}
+
+// 定期清理（每 5 分钟清除过期的限流记录）
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, val] of authTracker) {
+    if (now >= val.resetAt) authTracker.delete(key)
+  }
+}, 5 * 60_000)
+
+// ===== IP 自动扣费 =====
+
 export function checkIPAutoDeduct(ip: string): boolean {
   let track = ipGenTracker.get(ip)
   if (!track) {

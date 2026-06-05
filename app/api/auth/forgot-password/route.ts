@@ -1,25 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserByEmail, createResetToken } from '@/lib/auth-user'
+import { getUserByEmail, createResetToken, getMailTransporter } from '@/lib/auth-user'
 import { getSiteUrl } from '@/lib/payment'
-import nodemailer from 'nodemailer'
+import { checkAuthRateLimit } from '@/lib/rate-limit'
 
-function getMailTransporter() {
-  const host = process.env.SMTP_HOST || ''
-  const port = parseInt(process.env.SMTP_PORT || '465')
-  const user = process.env.SMTP_USER || ''
-  const pass = process.env.SMTP_PASS || ''
-  if (!host || !user || !pass) return null
-
-  return nodemailer.createTransport({
-    host, port,
-    secure: port === 465,
-    auth: { user, pass },
-  })
+function getClientIP(request: NextRequest): string {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || '127.0.0.1'
 }
 
 /** POST — 发送密码重置邮件 */
 export async function POST(request: NextRequest) {
   try {
+    // 频率限制
+    const ip = getClientIP(request)
+    const rateCheck = checkAuthRateLimit(ip, 'forgotPassword')
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: `请求过于频繁，请 ${rateCheck.retryAfter} 秒后再试` },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfter) } }
+      )
+    }
+
     const { email } = await request.json()
     if (!email) {
       return NextResponse.json({ error: '请输入邮箱' }, { status: 400 })

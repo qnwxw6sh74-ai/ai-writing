@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import pool from "@/lib/db"
 
-// GET - 获取所有 AI 模型（含 api_key）
+// GET - 获取所有 AI 模型（api_key 已脱敏）
 export async function GET() {
   try {
     const [rows] = await pool.execute(
       "SELECT * FROM ai_models ORDER BY sort_order, id"
     )
-    return NextResponse.json({ models: rows })
+    const safe = (rows as any[]).map((row: any) => ({
+      ...row,
+      api_key: row.api_key
+        ? row.api_key.slice(0, 4) + "****" + row.api_key.slice(-4)
+        : "",
+    }))
+    return NextResponse.json({ models: safe })
   } catch {
     return NextResponse.json({ models: [] })
   }

@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
 import { verifyPassword, createUserToken, getUserByEmail, TOKEN_EXPIRY_SECONDS, USER_TOKEN_COOKIE } from '@/lib/auth-user'
+import { checkAuthRateLimit } from '@/lib/rate-limit'
+
+function getClientIP(request: NextRequest): string {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || '127.0.0.1'
+}
 
 export async function POST(request: NextRequest) {
   try {
+    // 频率限制
+    const ip = getClientIP(request)
+    const rateCheck = checkAuthRateLimit(ip, 'login')
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: `请求过于频繁，请 ${rateCheck.retryAfter} 秒后再试` },
+        { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfter) } }
+      )
+    }
+
     const { email, password } = await request.json()
 
     if (!email || !password) {

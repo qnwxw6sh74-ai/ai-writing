@@ -37,12 +37,12 @@ export interface UserPayload {
 // ---- JWT ----
 
 // 与 lib/auth.ts 使用同一个 JWT_SECRET，确保 admin 和 user token 可共存
-if (!process.env.JWT_SECRET) {
-  console.warn('⚠️  WARNING: JWT_SECRET 环境变量未设置！请在生产环境中配置强密钥。')
-}
-
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || process.env.ADMIN_PASSWORD || 'ai-writing-secret-key-change-me'
+  (() => {
+    const secret = process.env.JWT_SECRET
+    if (!secret) throw new Error('JWT_SECRET 环境变量未配置，服务拒绝启动。请在 .env.local 中设置强密钥。')
+    return secret
+  })()
 )
 
 const USER_TOKEN_COOKIE = 'user_token'
@@ -93,7 +93,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 // ---- 邮箱验证 ----
 
-function getMailTransporter() {
+export function getMailTransporter() {
   const host = process.env.SMTP_HOST || ''
   const port = parseInt(process.env.SMTP_PORT || '465')
   const user = process.env.SMTP_USER || ''
