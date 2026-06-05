@@ -12,16 +12,22 @@ import pool from "@/lib/db"
  * 返回纯文本 "success" / "fail"（V免签协议要求）
  */
 export async function GET(request: NextRequest) {
+  const url = new URL(request.url)
+  const params: Record<string, string> = {}
+  url.searchParams.forEach((v, k) => { params[k] = v })
+
   // 仅允许本地请求（V免签 PHP 与本站同机部署）
-  const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || request.headers.get('x-real-ip')
-    || '127.0.0.1'
+  const xff = request.headers.get('x-forwarded-for')
+  const realIp = request.headers.get('x-real-ip')
+  const clientIP = xff?.split(',')[0]?.trim() || realIp || '127.0.0.1'
+  console.log(`[payment] 回调收到: IP=${clientIP}, xff=${xff}, realIp=${realIp}, params=${JSON.stringify(params)}`)
+
   if (clientIP !== '127.0.0.1' && clientIP !== '::1' && clientIP !== 'localhost') {
-    console.warn(`[payment] 非本地回调 IP: ${clientIP}`)
+    console.warn(`[payment] 非本地回调 IP 被拒: ${clientIP}`)
     return new NextResponse("fail", { status: 403 })
   }
 
-  const { searchParams } = new URL(request.url)
+  const { searchParams } = url
   const payId = searchParams.get("payId") || ""
   const param = searchParams.get("param") || ""
   const type = searchParams.get("type") || "1"
@@ -35,7 +41,7 @@ export async function GET(request: NextRequest) {
 
   // 1. 验证签名（回调签名含 reallyPrice）
   if (!verifyCallbackSign(payId, param, type, price, reallyPrice, sign)) {
-    console.warn("V免签回调签名验证失败:", { payId, param, type, price, reallyPrice, sign })
+    console.warn(`[payment] 回调签名验证失败: payId=${payId}, param=${param}, type=${type}, price=${price}, reallyPrice=${reallyPrice}, sign=${sign}`)
     return new NextResponse("fail", { status: 403 })
   }
 
@@ -76,7 +82,12 @@ export async function GET(request: NextRequest) {
            VALUES (?, ?, ?, ?, ?, 'vmq_callback')`,
           [userId, creditsToAdd, orderPrice, planId, payId]
         )
+        console.log(`[payment] 回调充值成功: userId=${userId}, credits=${creditsToAdd}, payId=${payId}, planId=${planId}`)
+      } else {
+        console.log(`[payment] 回调重复充值已跳过: payId=${payId}`)
       }
+    } else {
+      console.warn(`[payment] 回调 creditsToAdd=0, 跳过充值: payId=${payId}, order=${JSON.stringify(order)}`)
     }
 
     return new NextResponse("success")

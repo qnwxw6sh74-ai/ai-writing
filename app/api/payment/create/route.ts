@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
         creditsToAdd = planRows[0].credits || 0
         isTrial = Number(planRows[0]?.is_trial) === 1
       }
+      console.log(`[payment] 套餐查询: planId=${planId}, credits=${creditsToAdd}, isTrial=${isTrial}, userId=${userId}`)
 
       // 体验套餐仅限首次充值
       if (isTrial) {
@@ -37,14 +38,18 @@ export async function POST(request: NextRequest) {
           "SELECT COUNT(*) AS cnt FROM credits_recharge WHERE user_identifier = ?",
           [userId]
         ) as any[]
-        if (Number(rechargeRows[0]?.cnt) > 0) {
+        const rechargeCnt = Number(rechargeRows[0]?.cnt) || 0
+        console.log(`[payment] 体验套餐检查: userId=${userId}, 历史充值次数=${rechargeCnt}`)
+        if (rechargeCnt > 0) {
           return NextResponse.json(
             { error: "体验套餐仅限首次充值，请选择其他套餐", code: "TRIAL_USED" },
             { status: 400 }
           )
         }
       }
-    } catch { /* DB 不可用 */ }
+    } catch (e) { console.error("[payment] DB 查询失败:", e) }
+
+    console.log(`[payment] 开始创建 V免签订单: price=${price}, type=${type}, planId=${planId}, notifyUrl=${getNotifyUrl()}`)
 
     // 创建 V免签订单
     const result = await createOrder({
@@ -54,6 +59,8 @@ export async function POST(request: NextRequest) {
       notifyUrl: getNotifyUrl(),
       returnUrl: `${getSiteUrl()}/pricing?paid=1`,
     })
+
+    console.log(`[payment] V免签订单结果: success=${result.success}, payId=${result.payId}, orderId=${result.orderId}, msg=${result.message}, payPageUrl=${result.payPageUrl || '无'}`)
 
     // 订单写入本地：pay_id 存商户订单号（与 V免签回调的 payId 一致）
     // 前端轮询用 payId（DB 查询），V免签查单用 orderId（云端订单号）

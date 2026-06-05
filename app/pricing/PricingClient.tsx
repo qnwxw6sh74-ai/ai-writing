@@ -239,7 +239,7 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
               </>
             )}
             {!orderResult.orderId && !orderResult.paid && (
-              <p>{orderResult.message || "支付失败"}</p>
+              <p>{orderResult.error || orderResult.message || "支付失败"}</p>
             )}
           </div>
         )}
