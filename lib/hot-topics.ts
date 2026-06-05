@@ -34,7 +34,11 @@ interface CacheEntry {
 }
 
 // ===== 缓存 =====
-const CACHE_TTL_MS = 15 * 60_000
+/** 热点数据缓存 TTL：2 小时。用户访问时若缓存过期则自动刷新 */
+const CACHE_TTL_MS = 2 * 60 * 60_000
+/** 夜间免打扰时段：0-8 点不自动刷新，节省 AI 调用成本 */
+const NIGHT_START_HOUR = 0
+const NIGHT_END_HOUR = 9
 let cache: CacheEntry | null = null
 
 function getCache(): CacheEntry | null {
@@ -325,9 +329,15 @@ export async function getHotTopics(): Promise<{
   return { ...entry, isCached: false }
 }
 
-// ===== 自动刷新（每 15 分钟拉取一次，保持热点新鲜）=====
+// ===== 自动刷新（每 2 小时拉取一次，夜间免打扰仅按需刷新）=====
 if (typeof globalThis !== "undefined" && !(globalThis as any).__hotTopicsTimer) {
   ;(globalThis as any).__hotTopicsTimer = setInterval(() => {
+    // 夜间免打扰：0:00-9:00 不自动刷新，仅用户访问时按需触发
+    const hour = new Date().getHours()
+    if (hour >= NIGHT_START_HOUR && hour < NIGHT_END_HOUR) {
+      return // 跳过，等用户访问时缓存过期自动触发
+    }
+
     const prevAnalysis = cache?.analysis  // 保留旧 AI 分析，防止刷新时 AI 失败丢失分析
     cache = null
     getHotTopics().then((result) => {
