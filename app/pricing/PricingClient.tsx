@@ -82,6 +82,7 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
   }
 
   const handlePay = async (plan: PricingPlan, type: 1 | 2) => {
+    console.log("[PricingClient] handlePay 触发:", { id: plan.id, name: plan.name, price: plan.price })
     setIsPaying(true)
     setSelectedPlan(plan)
     setPayType(type)
@@ -91,6 +92,7 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
 
     // 先同步打开空白窗口（避免浏览器拦截异步 window.open）
     const payWindow = window.open("about:blank", "_blank")
+    console.log("[PricingClient] window.open 结果:", payWindow ? "窗口已打开" : "被拦截")
 
     try {
       const res = await fetch("/api/payment/create", {

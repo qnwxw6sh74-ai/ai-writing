@@ -38,11 +38,13 @@ export function PaymentModal({ open, onClose, onPaid }: Props) {
   }, [open])
 
   const handlePay = async (plan: Plan) => {
+    console.log("[PaymentModal] handlePay 触发:", { id: plan.id, name: plan.name, price: plan.price, is_trial: plan.is_trial })
     setPaying(plan.id)
     setResult(null)
 
     // 先同步打开空白窗口（避免浏览器拦截异步 window.open）
     const payWindow = window.open("about:blank", "_blank")
+    console.log("[PaymentModal] window.open 结果:", payWindow ? "窗口已打开" : "被拦截")
 
     try {
       const res = await fetch("/api/payment/create", {
