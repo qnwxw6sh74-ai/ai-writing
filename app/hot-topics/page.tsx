@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Flame, TrendingUp, TrendingDown, Minus, Loader2, RefreshCw, Eye } from "lucide-react"
@@ -10,7 +10,7 @@ interface HotTopic {
   title: string
   rank: number
   hotScore: number
-  source: "tencent" | "weibo" | "douyin"
+  source: "tencent" | "weibo" | "douyin" | "tianapi"
 }
 
 interface HotAnalysis {
@@ -35,6 +35,7 @@ const sourceLabels: Record<string, { label: string; color: string }> = {
   tencent: { label: "腾讯", color: "bg-blue-950/50 text-blue-400" },
   weibo: { label: "微博", color: "bg-red-950/50 text-red-400" },
   douyin: { label: "抖音", color: "bg-cyan-950/50 text-cyan-400" },
+  tianapi: { label: "全网", color: "bg-purple-950/50 text-purple-400" },
 }
 
 const trendIcons: Record<string, React.ReactNode> = {
@@ -51,6 +52,14 @@ export default function HotTopicsPage() {
   const [errors, setErrors] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [live, setLive] = useState(false) // SSE 已连接
+
+  const applyData = (data: any) => {
+    setTopics(data.topics || [])
+    setAnalysis(data.analysis)
+    setSources(data.sources || [])
+    setErrors(data.errors || [])
+  }
 
   const fetchData = async () => {
     setLoading(true)
@@ -58,11 +67,7 @@ export default function HotTopicsPage() {
     try {
       const res = await fetch("/api/hot-topics")
       if (!res.ok) throw new Error("请求失败")
-      const data = await res.json()
-      setTopics(data.topics || [])
-      setAnalysis(data.analysis)
-      setSources(data.sources || [])
-      setErrors(data.errors || [])
+      applyData(await res.json())
     } catch {
       setError("获取热点失败，请稍后重试")
     } finally {
@@ -70,7 +75,24 @@ export default function HotTopicsPage() {
     }
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    // 首屏加载
+    fetchData()
+
+    // SSE 实时推送
+    const es = new EventSource("/api/hot-topics/stream")
+    es.onmessage = (event) => {
+      try {
+        applyData(JSON.parse(event.data))
+        setLoading(false)
+        setLive(true)
+      } catch {}
+    }
+    es.onerror = () => {} // 自动重连
+    es.onopen = () => setLive(true)
+
+    return () => es.close()
+  }, [])
 
   // 查找话题对应的分析
   const findAnalysis = (title: string) =>
@@ -115,6 +137,7 @@ export default function HotTopicsPage() {
                   </h1>
                   <p className="text-zinc-400 mt-1">
                     全网实时热点 + AI 趋势分析，找准写作方向
+                    {live && <span className="ml-2 text-xs text-green-500">● 实时</span>}
                     {sources.length > 0 && (
                       <span className="ml-2 text-xs text-zinc-600">
                         已覆盖 {sources.map(s => sourceLabels[s]?.label).join(" · ")}

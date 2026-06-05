@@ -163,6 +163,32 @@ ${topTitles}
   }
 }
 
+// ===== 事件推送（SSE 通知前端）=====
+
+type CacheListener = (data: CacheEntry) => void
+
+function getListeners(): Set<CacheListener> {
+  if (!(globalThis as any).__hotTopicsListeners) {
+    ;(globalThis as any).__hotTopicsListeners = new Set<CacheListener>()
+  }
+  return (globalThis as any).__hotTopicsListeners
+}
+
+/** SSE 端点调用：订阅缓存更新 */
+export function subscribeToHotTopics(cb: CacheListener): () => void {
+  const listeners = getListeners()
+  listeners.add(cb)
+  // 如果有缓存，立即推送
+  if (cache) cb(cache)
+  return () => { listeners.delete(cb) }
+}
+
+function notifyListeners(entry: CacheEntry) {
+  for (const cb of getListeners()) {
+    try { cb(entry) } catch {}
+  }
+}
+
 // ===== 主入口 =====
 
 export async function getHotTopics(): Promise<{
@@ -218,6 +244,7 @@ export async function getHotTopics(): Promise<{
     cachedAt: Date.now(),
   }
   cache = entry
+  notifyListeners(entry)
 
   return { ...entry, isCached: false }
 }
