@@ -472,7 +472,7 @@ export default function AdminDashboardPage() {
                             ))}
                           </ul>
                         </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity ml-2">
                           <button onClick={() => {
                             setEditingLog({ ...log, changes: Array.isArray(items) ? items.join("\n") : log.changes })
                             setNewLog(false)
@@ -506,7 +506,7 @@ export default function AdminDashboardPage() {
 
                 {(newPrompt || editingPrompt) && editingPrompt && (
                   <div className="mb-6 bg-zinc-800/50 rounded-lg border border-zinc-700 p-4 space-y-3">
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <div>
                         <label className="block text-xs text-zinc-400 mb-1">名称</label>
                         <input type="text" value={editingPrompt.name} onChange={(e) => setEditingPrompt({ ...editingPrompt, name: e.target.value })} className={inputClasses} placeholder="通用文章生成" />
@@ -570,7 +570,7 @@ export default function AdminDashboardPage() {
                         </div>
                         <p className="text-xs text-zinc-500 truncate">{p.system_prompt.slice(0, 60)}...</p>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                      <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
                         <button type="button" onClick={() => { setEditingPrompt(p); setNewPrompt(false) }}
                           className="text-xs text-zinc-500 hover:text-red-400 px-2 py-1 rounded transition-colors">编辑</button>
                         <button type="button" onClick={() => handleDeletePrompt(p.id)}
@@ -600,7 +600,7 @@ export default function AdminDashboardPage() {
 
                 {(newModel || editingModel) && editingModel && (
                   <div className="mb-6 bg-zinc-800/50 rounded-lg border border-zinc-700 p-4 space-y-3">
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       <div>
                         <label className="block text-xs text-zinc-400 mb-1">显示名称</label>
                         <input type="text" value={editingModel.name} onChange={(e) => setEditingModel({ ...editingModel, name: e.target.value })} className={inputClasses} placeholder="DeepSeek V3" />
@@ -629,7 +629,7 @@ export default function AdminDashboardPage() {
                         <input type="text" value={editingModel.base_url} onChange={(e) => setEditingModel({ ...editingModel, base_url: e.target.value })} className={inputClasses} placeholder="留空使用默认地址" />
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div>
                         <label className="block text-xs text-zinc-400 mb-1">Max Tokens</label>
                         <input type="number" value={editingModel.max_tokens} onChange={(e) => setEditingModel({ ...editingModel, max_tokens: parseInt(e.target.value) || 4096 })} className={inputClasses} />
@@ -684,7 +684,7 @@ export default function AdminDashboardPage() {
                           {m.keyword_triggers && ` | 触发词: ${(() => { try { return JSON.parse(m.keyword_triggers).join(", ") } catch { return m.keyword_triggers } })()}`}
                         </p>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 shrink-0">
+                      <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity ml-2 shrink-0">
                         <button type="button" onClick={() => { setEditingModel(m); setNewModel(false) }}
                           className="text-xs text-zinc-500 hover:text-red-400 px-2 py-1 rounded transition-colors">编辑</button>
                         <button type="button" onClick={() => handleDeleteModel(m.id)}
@@ -712,7 +712,7 @@ export default function AdminDashboardPage() {
                         value={userSearch}
                         onChange={e => { setUserSearch(e.target.value); setUserPage(1) }}
                         placeholder="搜索邮箱或昵称..."
-                        className="w-52 bg-zinc-800 border border-zinc-700 rounded-lg pl-9 pr-3 py-1.5 text-sm text-white focus:outline-none focus:border-red-500"
+                        className="w-full sm:w-52 bg-zinc-800 border border-zinc-700 rounded-lg pl-9 pr-3 py-1.5 text-sm text-white focus:outline-none focus:border-red-500"
                       />
                     </div>
                     <span className="text-xs text-zinc-500">共 {userTotal} 人</span>

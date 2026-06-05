@@ -217,7 +217,7 @@ export default function HotTopicsPage() {
                             <span className="text-sm font-medium text-zinc-200 group-hover:text-red-400 transition-colors truncate">
                               {topic.title}
                             </span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded ${sourceLabels[topic.source]?.color}`}>
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${sourceLabels[topic.source]?.color}`}>
                               {sourceLabels[topic.source]?.label}
                             </span>
                           </div>
@@ -254,7 +254,7 @@ export default function HotTopicsPage() {
                               ? `${(topic.hotScore / 10000).toFixed(1)}万`
                               : topic.hotScore}
                           </div>
-                          <Eye size={12} className="text-zinc-700 ml-auto mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <Eye size={12} className="text-zinc-700 ml-auto mt-1 hidden sm:block sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
                         </div>
                       </div>
                     </div>

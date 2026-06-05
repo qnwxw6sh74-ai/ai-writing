@@ -75,7 +75,7 @@ export function HeroCarousel({ slides = defaultSlides, quickLinks = defaultQuick
             <button
               type="button"
               onClick={prev}
-              className="absolute -left-3 lg:-left-6 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center hover:bg-zinc-700 hover:border-red-700 transition-colors text-zinc-400"
+              className="absolute -left-3 lg:-left-6 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center hover:bg-zinc-700 hover:border-red-700 transition-colors text-zinc-400"
               aria-label="Previous slide"
             >
               <ChevronLeft className="h-5 w-5" />
@@ -108,7 +108,7 @@ export function HeroCarousel({ slides = defaultSlides, quickLinks = defaultQuick
             <button
               type="button"
               onClick={next}
-              className="absolute -right-3 lg:-right-6 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center hover:bg-zinc-700 hover:border-red-700 transition-colors text-zinc-400"
+              className="absolute -right-3 lg:-right-6 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center hover:bg-zinc-700 hover:border-red-700 transition-colors text-zinc-400"
               aria-label="Next slide"
             >
               <ChevronRight className="h-5 w-5" />

@@ -47,12 +47,18 @@ export function RewriteToolbar({ containerRef, articleHash, onReplace }: Props) 
       const text = sel.toString().trim()
       if (text.length < 2) { hide(); return }
 
-      // 计算工具栏位置
+      // 计算工具栏位置（移动端边界保护）
       const rect = range.getBoundingClientRect()
+      const toolbarW = 280 // 预估工具栏宽度
+      let x = rect.left + rect.width / 2
+      const minX = toolbarW / 2 + 8
+      const maxX = window.innerWidth - toolbarW / 2 - 8
+      x = Math.max(minX, Math.min(maxX, x))
+
       setSelectedText(text)
       setPosition({
-        x: rect.left + rect.width / 2,
-        y: rect.top - 10,
+        x,
+        y: Math.max(rect.top - 12, 60), // 不超出屏幕顶部（留 header 空间）
       })
     }
 
@@ -123,21 +129,21 @@ export function RewriteToolbar({ containerRef, articleHash, onReplace }: Props) 
           disabled={loading !== "" || remaining <= 0}
           onClick={() => handleAction(key)}
           title={desc}
-          className="flex items-center gap-1 text-xs bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 text-zinc-200 px-2.5 py-1.5 rounded transition-colors whitespace-nowrap"
+          className="flex items-center gap-1.5 text-sm bg-zinc-700 hover:bg-zinc-600 active:bg-zinc-500 disabled:opacity-40 text-zinc-200 px-3 py-2.5 rounded-lg transition-colors whitespace-nowrap min-h-[44px]"
         >
           {loading === key ? (
-            <Loader2 size={12} className="animate-spin" />
+            <Loader2 size={16} className="animate-spin" />
           ) : (
-            <Sparkles size={12} className="text-yellow-400" />
+            <Sparkles size={16} className="text-yellow-400" />
           )}
           {label}
         </button>
       ))}
-      <span className="text-[10px] text-zinc-500 px-1">
+      <span className="text-xs text-zinc-500 px-1">
         {remaining}/5
       </span>
       {error && (
-        <span className="text-[10px] text-red-400 px-1 animate-pulse">
+        <span className="text-xs text-red-400 px-1 animate-pulse">
           {error}
         </span>
       )}

@@ -131,7 +131,7 @@ export function ExportMenu({ content, editorRef }: Props) {
               key={item.label}
               type="button"
               onClick={item.onClick}
-              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors text-left"
+              className="w-full flex items-center gap-2 px-4 py-3 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors text-left"
             >
               <item.icon size={15} />
               {item.label}

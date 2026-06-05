@@ -79,8 +79,8 @@ export function HotKeywords() {
       <div className="flex items-center gap-2 mb-4">
         <Flame size={18} className="text-red-500" />
         <h2 className="text-sm font-bold text-zinc-400">🔥 全网热议 · 写作灵感</h2>
-        <span className="text-[10px] text-green-500">● 实时</span>
-        <span className="text-[10px] text-zinc-600">AI 分析上升趋势 · 点击直接创作</span>
+        <span className="text-xs text-green-500">● 实时</span>
+        <span className="text-xs text-zinc-600">AI 分析上升趋势 · 点击直接创作</span>
       </div>
       <div className="flex flex-wrap gap-3">
         {items.map((item) => {
@@ -92,7 +92,7 @@ export function HotKeywords() {
               className={`rounded-full border transition-all duration-200 ${
                 isRising
                   ? "text-base font-bold bg-red-900/40 hover:bg-red-800/60 text-red-300 px-4 py-2 border-red-700/50 hover:border-red-500 shadow-lg shadow-red-900/10"
-                  : "text-sm bg-zinc-800 hover:bg-red-900/50 hover:text-red-300 text-zinc-400 px-3 py-1.5 border-zinc-700 hover:border-red-800"
+                  : "text-sm bg-zinc-800 hover:bg-red-900/50 hover:text-red-300 text-zinc-400 px-3 py-2 border-zinc-700 hover:border-red-800"
               }`}
             >
               {isRising && <TrendingUp size={14} className="inline mr-1 -mt-0.5" />}

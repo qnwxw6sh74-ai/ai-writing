@@ -133,7 +133,7 @@ export function ArticleOutput({ content, contentB, title, credits, onCreditsChan
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === tab ? "border-red-500 text-red-400" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}
+                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? "border-red-500 text-red-400" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}
               >
                 {tab === "A" ? "📝 A版" : "✏️ B版"}
               </button>
@@ -189,7 +189,7 @@ export function ArticleOutput({ content, contentB, title, credits, onCreditsChan
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${activeTab === tab ? "border-red-500 text-red-400" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeTab === tab ? "border-red-500 text-red-400" : "border-transparent text-zinc-500 hover:text-zinc-300"}`}
             >
               {tab === "A" ? "📝 A版" : "✏️ B版"}
             </button>

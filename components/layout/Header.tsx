@@ -89,7 +89,7 @@ export function Header({ siteName = "公众号爆文生成器", navLinks = defau
           <div className="lg:hidden border-t border-zinc-800 py-3 pb-4">
             <div className="flex flex-col space-y-1">
               {navLinks.map((link) => (
-                <Link key={link.href + link.label} href={link.href} onClick={() => setMobileOpen(false)} className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800/50 px-3 py-2 rounded transition-colors">
+                <Link key={link.href + link.label} href={link.href} onClick={() => setMobileOpen(false)} className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800/50 px-3 py-3 rounded transition-colors">
                   {link.label}
                 </Link>
               ))}
@@ -99,12 +99,12 @@ export function Header({ siteName = "公众号爆文生成器", navLinks = defau
                 </Link>
               )}
               {user ? (
-                <Link href="/profile" onClick={() => setMobileOpen(false)} className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800/50 px-3 py-2 rounded transition-colors">
+                <Link href="/profile" onClick={() => setMobileOpen(false)} className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800/50 px-3 py-3 rounded transition-colors">
                   👤 {user.nickname || '个人中心'}
                 </Link>
               ) : (
                 <>
-                  <Link href="/login" onClick={() => setMobileOpen(false)} className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800/50 px-3 py-2 rounded transition-colors">
+                  <Link href="/login" onClick={() => setMobileOpen(false)} className="text-zinc-400 hover:text-red-400 hover:bg-zinc-800/50 px-3 py-3 rounded transition-colors">
                     登录
                   </Link>
                   <Link href="/register" onClick={() => setMobileOpen(false)} className="text-red-400 hover:text-red-300 hover:bg-zinc-800/50 px-3 py-2 rounded transition-colors font-medium">

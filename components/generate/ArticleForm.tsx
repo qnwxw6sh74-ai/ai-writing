@@ -98,7 +98,7 @@ export function ArticleForm({ onGenerate, isLoading, cooldownSeconds, models, in
           className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 accent-red-500"
         />
         <span className="text-zinc-400">生成双版本</span>
-        <span className="text-[10px] text-zinc-600">（并行生成A/B两稿，选一确认，仅扣1次额度）</span>
+        <span className="text-xs text-zinc-600">（并行生成A/B两稿，选一确认，仅扣1次额度）</span>
       </label>
 
       <button
