@@ -21,7 +21,7 @@ export function getNotifyUrl(): string {
 
 /** V免签支付页面基础 URL（用户浏览器可访问，需 Nginx 反代或公网可达） */
 function getPayPageBaseUrl(): string {
-  return (process.env.PAY_PAGE_BASE_URL || PHP_API_BASE).replace(/\/$/, '')
+  return (process.env.PAY_PAGE_BASE_URL || getSiteUrl()).replace(/\/$/, '')
 }
 
 // ---- 类型 ----
