@@ -131,6 +131,8 @@ function parseAIJson(raw: string): any {
   // 策略4: 修复原始文本再试
   try { return JSON.parse(repairJSON(raw)) } catch {}
 
+  // 所有策略失败，记录原始返回内容便于排查
+  console.error(`[hot-topics] JSON 解析全部失败，AI 原始返回(前500字): ${raw.slice(0, 500)}`)
   throw new Error("无法解析 AI 返回的 JSON")
 }
 
@@ -188,8 +190,12 @@ ${topTitles}
       { ...overrides, temperature: 0.3, maxTokens: 3000 }
     )
 
-    if (!result) throw new Error("AI 返回为空")
+    if (!result) {
+      console.error("[hot-topics] AI 返回为空(null/undefined)")
+      throw new Error("AI 返回为空")
+    }
 
+    console.log(`[hot-topics] AI 原始返回(前300字): ${result.slice(0, 300)}`)
     const json = parseAIJson(result)
 
     return (json.topics || []).map((t: any) => ({
