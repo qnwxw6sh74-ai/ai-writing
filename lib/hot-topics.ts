@@ -1,8 +1,8 @@
 /**
  * 热点选题 — 三源聚合 + 缓存 + AI 分析
  *
- * 数据源：腾讯新闻 | 微博热搜 | 抖音热榜
- * 缓存：5 分钟 TTL，内存 Map
+ * 数据源：腾讯新闻 | 天行数据（聚合微博/抖音/百度/知乎）
+ * 缓存：30 分钟 TTL，内存 Map
  * AI：分析上升趋势 + 写作建议
  */
 import { chatCompletion } from "@/lib/ai-client"
@@ -14,7 +14,7 @@ export interface HotTopic {
   title: string
   rank: number
   hotScore: number
-  source: "tencent" | "weibo" | "douyin"
+  source: "tencent" | "weibo" | "douyin" | "tianapi"
 }
 
 export interface HotAnalysis {
@@ -62,26 +62,25 @@ async function fetchTencentTopics(): Promise<HotTopic[]> {
   })).filter((t: HotTopic) => t.title)
 }
 
-async function fetchWeiboTopics(): Promise<HotTopic[]> {
-  const res = await fetch("https://weibo.com/ajax/side/hotSearch", {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Referer": "https://weibo.com/",
-      "Accept": "application/json, text/plain, */*",
-      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-      "Cookie": "SUB=_2AkMR;", // 微博基础 cookie，防 403
-    },
-    signal: AbortSignal.timeout(8000),
-  })
-  if (!res.ok) throw new Error(`Weibo HTTP ${res.status}`)
+async function fetchTianapiTopics(): Promise<HotTopic[]> {
+  const apiKey = process.env.TIANAPI_KEY
+  if (!apiKey) throw new Error("TIANAPI_KEY 未配置")
+
+  const res = await fetch(
+    `https://apis.tianapi.com/networkhot/index?key=${apiKey}`,
+    { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(8000) }
+  )
+  if (!res.ok) throw new Error(`TianAPI HTTP ${res.status}`)
   const json = await res.json()
-  const items = json?.data?.realtime || []
+  if (json.code !== 200) throw new Error(`TianAPI ${json.code}: ${json.msg}`)
+
+  const items: any[] = json?.result?.list || []
   return items.slice(0, 30).map((item: any, i: number) => ({
-    id: `wb_${item.word_scheme || i}`,
-    title: String(item.word || item.note || "").trim().replace(/#/g, ""),
+    id: `ta_${i}`,
+    title: String(item.title || "").trim(),
     rank: i + 1,
-    hotScore: Number(item.raw_hot || item.num || 0),
-    source: "weibo" as const,
+    hotScore: Number(item.hotnum || 0),
+    source: "tianapi" as const,
   })).filter((t: HotTopic) => t.title)
 }
 
@@ -108,7 +107,7 @@ async function analyzeTrends(topics: HotTopic[]): Promise<HotAnalysis[]> {
 
   const systemPrompt = `你是一位资深自媒体运营和数据分析专家，擅长识别处于上升期的热点话题。请根据当前热点列表，筛选出最有公众号写作价值的话题，给出具体写作建议。`
 
-  const userPrompt = `以下是当前三大平台的热搜话题列表：
+  const userPrompt = `以下是当前全网热搜话题列表：
 
 ${topTitles}
 
@@ -176,10 +175,10 @@ export async function getHotTopics(): Promise<{
     return { ...cached, isCached: true }
   }
 
-  // 并行拉取：腾讯新闻 + 微博热搜
+  // 并行拉取：腾讯新闻 + 天行数据（聚合微博/抖音/百度/知乎）
   const sources_fns = [
     { name: "tencent", fn: fetchTencentTopics },
-    { name: "weibo", fn: fetchWeiboTopics },
+    { name: "tianapi", fn: fetchTianapiTopics },
   ] as const
 
   const results = await Promise.allSettled(sources_fns.map(s => s.fn()))
