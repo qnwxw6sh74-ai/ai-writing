@@ -6,6 +6,16 @@ import { ArticleEditor } from "@/components/editor/ArticleEditor"
 import { ExportMenu } from "@/components/editor/ExportMenu"
 import { RewriteToolbar } from "@/components/editor/RewriteToolbar"
 
+/** 简单字符串哈希（Java String.hashCode 算法） */
+function hashCode(s: string): string {
+  let hash = 0
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash) + s.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash).toString(36)
+}
+
 interface CreditsInfo {
   total: number
   used: number
@@ -32,8 +42,8 @@ export function ArticleOutput({ content, contentB, title, credits, onCreditsChan
   const currentContent = activeTab === "B" && contentB ? contentB : content
   // 每个版本独立追踪改写次数
   const articleHash = useRef<{ A: string; B: string }>({
-    A: btoa(unescape(encodeURIComponent(content.slice(0, 100)))),
-    B: contentB ? btoa(unescape(encodeURIComponent(contentB.slice(0, 100)))) : "",
+    A: hashCode(content),
+    B: contentB ? hashCode(contentB) : "",
   }).current
   const activeHash = activeTab === "B" && articleHash.B ? articleHash.B : articleHash.A
 
