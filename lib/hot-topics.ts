@@ -294,7 +294,21 @@ export async function getHotTopics(): Promise<{
 // ===== 自动刷新（每 15 分钟拉取一次，保持热点新鲜）=====
 if (typeof globalThis !== "undefined" && !(globalThis as any).__hotTopicsTimer) {
   ;(globalThis as any).__hotTopicsTimer = setInterval(() => {
+    const prevAnalysis = cache?.analysis  // 保留旧 AI 分析，防止刷新时 AI 失败丢失分析
     cache = null
-    getHotTopics().catch(() => {})
+    getHotTopics().then((result) => {
+      // 如果新分析为空但旧分析有效，将旧分析合并到新缓存（话题可能变化但比全丢好）
+      if (!result.analysis && prevAnalysis) {
+        const entry: CacheEntry = {
+          topics: result.topics,
+          analysis: prevAnalysis,
+          sources: result.sources,
+          errors: [...result.errors, "AI 分析暂时不可用，显示上一次分析结果"],
+          cachedAt: result.cachedAt,
+        }
+        cache = entry
+        notifyListeners(entry)
+      }
+    }).catch(() => { /* 网络/API 失败，等待下一个周期 */ })
   }, CACHE_TTL_MS)
 }

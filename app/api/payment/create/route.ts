@@ -68,7 +68,10 @@ export async function POST(request: NextRequest) {
       } catch { /* 入库失败不阻塞支付流程 */ }
     }
 
-    return NextResponse.json(result)
+    if (result.success) {
+      return NextResponse.json(result)
+    }
+    return NextResponse.json(result, { status: 502 })
   } catch (error) {
     console.error("Payment create error:", error)
     return NextResponse.json({ success: false, message: "创建订单失败" }, { status: 500 })

@@ -101,6 +101,12 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
       const data = await res.json()
       setOrderResult(data)
 
+      if (!res.ok || data.success === false) {
+        // 失败时关闭空白窗口，显示错误
+        if (payWindow && !payWindow.closed) payWindow.close()
+        return
+      }
+
       // 打开 V免签支付页面（含二维码）
       if (data.payPageUrl) {
         if (payWindow && !payWindow.closed) {

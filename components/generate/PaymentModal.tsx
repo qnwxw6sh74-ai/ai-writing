@@ -52,9 +52,8 @@ export function PaymentModal({ open, onClose, onPaid }: Props) {
       })
       const data = await res.json()
 
-      if (!res.ok) {
-        setResult({ message: data.error || "创建订单失败" })
-        // 关闭空白窗口
+      if (!res.ok || data.success === false) {
+        setResult({ message: data.error || data.message || "创建订单失败，请稍后重试" })
         if (payWindow && !payWindow.closed) payWindow.close()
         return
       }
@@ -66,8 +65,9 @@ export function PaymentModal({ open, onClose, onPaid }: Props) {
           setResult({ message: `支付页面被浏览器拦截，请手动打开：${data.payPageUrl}` })
         }
       } else {
-        // 无支付页面，关闭空白窗口
+        // 无支付页面，关闭空白窗口并提示
         if (payWindow && !payWindow.closed) payWindow.close()
+        setResult({ message: data.message || "创建支付订单失败，请稍后重试" })
       }
       if (data.payId) startPoll(data.payId, data.orderId || data.payId)
     } catch {
