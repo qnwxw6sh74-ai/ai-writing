@@ -106,6 +106,36 @@ function mergeTopics(allTopics: HotTopic[]): HotTopic[] {
 
 // ===== JSON 修复工具 =====
 
+/**
+ * 修复 tokens 截断导致的残缺 JSON
+ * 原理：从后往前逐字符删除，每删一个尝试闭合括号+引号解析，直到成功
+ */
+function repairTruncatedJSON(s: string): string | null {
+  // 先尝试标准修复
+  try { JSON.parse(s) } catch { /* continue */ }
+  const repaired = repairJSON(s)
+  try { JSON.parse(repaired); return repaired } catch { /* continue */ }
+
+  // 截断修复：从末尾逐字符删除，尝试闭合未完成的字符串和括号
+  for (let i = 0; i < Math.min(200, s.length); i++) {
+    let candidate = s.slice(0, s.length - i)
+    // 如果在字符串中间被截断（奇数个未转义引号），补一个引号
+    const quoteCount = (candidate.match(/(?<!\\)"/g) || []).length
+    if (quoteCount % 2 !== 0) candidate += '"'
+    // 补全缺失的 ] 和 }
+    const openArrays = (candidate.match(/\[/g) || []).length
+    const closeArrays = (candidate.match(/\]/g) || []).length
+    const openObjects = (candidate.match(/\{/g) || []).length
+    const closeObjects = (candidate.match(/\}/g) || []).length
+    for (let j = 0; j < openArrays - closeArrays; j++) candidate += "]"
+    for (let j = 0; j < openObjects - closeObjects; j++) candidate += "}"
+    // 移除尾逗号
+    candidate = repairJSON(candidate)
+    try { JSON.parse(candidate); return candidate } catch { /* 继续尝试 */ }
+  }
+  return null
+}
+
 /** 尝试修复 AI 返回的残缺 JSON（补逗号、去尾逗号、截断修复等） */
 function parseAIJson(raw: string): any {
   // 策略1: 直接解析
@@ -115,7 +145,6 @@ function parseAIJson(raw: string): any {
   const codeMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (codeMatch) {
     try { return JSON.parse(codeMatch[1]) } catch {}
-    // 修复后再试
     try { return JSON.parse(repairJSON(codeMatch[1])) } catch {}
   }
 
@@ -131,8 +160,15 @@ function parseAIJson(raw: string): any {
   // 策略4: 修复原始文本再试
   try { return JSON.parse(repairJSON(raw)) } catch {}
 
+  // 策略5: 截断修复（tokens 不足导致 JSON 被截断）
+  const truncatedFix = repairTruncatedJSON(raw)
+  if (truncatedFix) {
+    console.warn(`[hot-topics] JSON 截断已修复，成功解析`)
+    return JSON.parse(truncatedFix)
+  }
+
   // 所有策略失败，记录原始返回内容便于排查
-  console.error(`[hot-topics] JSON 解析全部失败，AI 原始返回(前500字): ${raw.slice(0, 500)}`)
+  console.error(`[hot-topics] JSON 解析全部失败，AI 原始返回(后100字+前100字): 尾=${raw.slice(-100)} | 头=${raw.slice(0, 100)}`)
   throw new Error("无法解析 AI 返回的 JSON")
 }
 
@@ -161,7 +197,7 @@ async function analyzeTrends(topics: HotTopic[]): Promise<HotAnalysis[]> {
 
 ${topTitles}
 
-从以上列表中，仅筛选出处于"上升期"（热度正在快速增长）的话题，每个话题给出：
+从以上列表中，仅筛选出处于"上升期"（热度正在快速增长）的话题，最多15个。每个话题给出：
 - trend: "rising"
 - trendLabel: 简短趋势描述（如"快速上升"）
 - writingPotential: 1-10 公众号写作潜力评分
@@ -179,7 +215,7 @@ ${topTitles}
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      { ...overrides, temperature: 0.3, maxTokens: 6000 }
+      { ...overrides, temperature: 0.3, maxTokens: 8000 }
     )
 
     if (!result) {
