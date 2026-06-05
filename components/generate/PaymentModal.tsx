@@ -40,6 +40,10 @@ export function PaymentModal({ open, onClose, onPaid }: Props) {
   const handlePay = async (plan: Plan) => {
     setPaying(plan.id)
     setResult(null)
+
+    // 先同步打开空白窗口（避免浏览器拦截异步 window.open）
+    const payWindow = window.open("about:blank", "_blank")
+
     try {
       const res = await fetch("/api/payment/create", {
         method: "POST",
@@ -50,16 +54,25 @@ export function PaymentModal({ open, onClose, onPaid }: Props) {
 
       if (!res.ok) {
         setResult({ message: data.error || "创建订单失败" })
+        // 关闭空白窗口
+        if (payWindow && !payWindow.closed) payWindow.close()
         return
       }
 
       if (data.payPageUrl) {
-        const w = window.open(data.payPageUrl, "_blank")
-        if (!w) setResult({ message: `支付页面被浏览器拦截，请手动打开：${data.payPageUrl}` })
+        if (payWindow && !payWindow.closed) {
+          payWindow.location.href = data.payPageUrl
+        } else {
+          setResult({ message: `支付页面被浏览器拦截，请手动打开：${data.payPageUrl}` })
+        }
+      } else {
+        // 无支付页面，关闭空白窗口
+        if (payWindow && !payWindow.closed) payWindow.close()
       }
       if (data.payId) startPoll(data.payId, data.orderId || data.payId)
     } catch {
       setResult({ message: "网络错误" })
+      if (payWindow && !payWindow.closed) payWindow.close()
     } finally {
       setPaying(null)
     }

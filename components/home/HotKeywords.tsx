@@ -10,28 +10,30 @@ interface HotItem {
   potential?: number
 }
 
-function parseItems(data: any): HotItem[] {
-  const risingSet = new Set<string>()
-  ;(data.analysis || []).forEach((a: any) => {
-    if (a.trend === "rising") risingSet.add(a.topicTitle)
-  })
-  const analysisMap = new Map<string, { trend: string; potential: number }>()
-  ;(data.analysis || []).forEach((a: any) => {
-    analysisMap.set(a.topicTitle, { trend: a.trend, potential: a.writingPotential })
-  })
+/** AI 可能改写标题，用模糊匹配替代精确匹配 */
+function fuzzyFindAnalysis(title: string, analysis: any[]): { trend: string; potential: number } | undefined {
+  for (const a of analysis) {
+    const at = a.topicTitle || ""
+    if (title.includes(at) || at.includes(title) || at.includes(title.slice(0, 10))) {
+      return { trend: a.trend, potential: a.writingPotential }
+    }
+  }
+  return undefined
+}
 
+function parseItems(data: any): HotItem[] {
+  const analysisList: any[] = data.analysis || []
   const topics = (data.topics || []) as any[]
   const rising: HotItem[] = []
   const rest: HotItem[] = []
   topics.forEach((t: any) => {
-    const isRising = risingSet.has(t.title)
-    const meta = analysisMap.get(t.title)
+    const meta = fuzzyFindAnalysis(t.title, analysisList)
     const item: HotItem = {
       title: t.title,
       trend: meta?.trend as any,
       potential: meta?.potential,
     }
-    if (isRising) rising.push(item)
+    if (item.trend === "rising") rising.push(item)
     else rest.push(item)
   })
   return [...rising, ...rest].slice(0, 24)

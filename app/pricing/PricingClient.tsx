@@ -89,6 +89,9 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
     setIsPolling(false)
     setPollTimedOut(false)
 
+    // 先同步打开空白窗口（避免浏览器拦截异步 window.open）
+    const payWindow = window.open("about:blank", "_blank")
+
     try {
       const res = await fetch("/api/payment/create", {
         method: "POST",
@@ -100,7 +103,12 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
 
       // 打开 V免签支付页面（含二维码）
       if (data.payPageUrl) {
-        window.open(data.payPageUrl, "_blank")
+        if (payWindow && !payWindow.closed) {
+          payWindow.location.href = data.payPageUrl
+        }
+      } else {
+        // 无支付页面，关闭空白窗口
+        if (payWindow && !payWindow.closed) payWindow.close()
       }
 
       // 启动轮询（payId 查本地订单，orderId 查 V免签）
@@ -109,6 +117,7 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
       }
     } catch {
       setOrderResult({ message: "支付服务暂不可用，请稍后重试" })
+      if (payWindow && !payWindow.closed) payWindow.close()
     } finally {
       setIsPaying(false)
     }
