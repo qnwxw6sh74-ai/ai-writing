@@ -75,13 +75,17 @@ async function fetchTianapiTopics(): Promise<HotTopic[]> {
   if (json.code !== 200) throw new Error(`TianAPI ${json.code}: ${json.msg}`)
 
   const items: any[] = json?.result?.list || []
+  // 过滤元数据/栏目头等非热点条目
+  const metaKeywords = ["用户最关注的热点", "每10分钟更新", "实时热点", "热门话题", "热搜榜"]
   return items.slice(0, 30).map((item: any, i: number) => ({
     id: `ta_${i}`,
     title: String(item.title || "").trim(),
     rank: i + 1,
     hotScore: Number(item.hotnum || 0),
     source: "tianapi" as const,
-  })).filter((t: HotTopic) => t.title)
+  })).filter((t: HotTopic) =>
+    t.title && !metaKeywords.some(kw => t.title.includes(kw))
+  )
 }
 
 // ===== 去重合并 =====
