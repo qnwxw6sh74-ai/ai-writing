@@ -43,14 +43,13 @@ export function HotKeywords() {
   const eventSourceRef = useRef<EventSource | null>(null)
 
   useEffect(() => {
-    // 先用 REST API 快速首屏
     fetch("/api/hot-topics")
       .then(r => r.json())
       .then(data => setItems(parseItems(data)))
       .catch(() => {})
       .finally(() => setLoading(false))
 
-    // 建立 SSE 长连接，接收服务端主动推送
+    // SSE 长连接，接收服务端主动推送
     const es = new EventSource("/api/hot-topics/stream")
     eventSourceRef.current = es
 
@@ -63,7 +62,7 @@ export function HotKeywords() {
     }
 
     es.onerror = () => {
-      // EventSource 会自动重连，不做额外处理
+      // EventSource 会自动重连
     }
 
     return () => {
@@ -72,7 +71,7 @@ export function HotKeywords() {
   }, [])
 
 
-  if (loading || items.length === 0) return null
+  if (!loading && items.length === 0) return null
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-8">
@@ -82,25 +81,33 @@ export function HotKeywords() {
         <span className="text-xs text-green-500">● 实时</span>
         <span className="text-xs text-zinc-600">AI 分析上升趋势 · 点击直接创作</span>
       </div>
-      <div className="flex flex-wrap gap-3">
-        {items.map((item) => {
-          const isRising = item.trend === "rising"
-          return (
-            <Link
-              key={item.title}
-              href={`/generate?keyword=${encodeURIComponent(item.title)}`}
-              className={`rounded-full border transition-all duration-200 ${
-                isRising
-                  ? "text-base font-bold bg-red-900/40 hover:bg-red-800/60 text-red-300 px-4 py-2 border-red-700/50 hover:border-red-500 shadow-lg shadow-red-900/10"
-                  : "text-sm bg-zinc-800 hover:bg-red-900/50 hover:text-red-300 text-zinc-400 px-3 py-2 border-zinc-700 hover:border-red-800"
-              }`}
-            >
-              {isRising && <TrendingUp size={14} className="inline mr-1 -mt-0.5" />}
-              {item.title}
-            </Link>
-          )
-        })}
-      </div>
+      {loading ? (
+        <div className="flex flex-wrap gap-3">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="h-8 bg-zinc-800 rounded-full animate-pulse" style={{ width: `${60 + (i * 37) % 80}px` }} />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-3">
+          {items.map((item) => {
+            const isRising = item.trend === "rising"
+            return (
+              <Link
+                key={item.title}
+                href={`/generate?keyword=${encodeURIComponent(item.title)}`}
+                className={`rounded-full border transition-all duration-200 ${
+                  isRising
+                    ? "text-base font-bold bg-red-900/40 hover:bg-red-800/60 text-red-300 px-4 py-2 border-red-700/50 hover:border-red-500 shadow-lg shadow-red-900/10"
+                    : "text-sm bg-zinc-800 hover:bg-red-900/50 hover:text-red-300 text-zinc-400 px-3 py-2 border-zinc-700 hover:border-red-800"
+                }`}
+              >
+                {isRising && <TrendingUp size={14} className="inline mr-1 -mt-0.5" />}
+                {item.title}
+              </Link>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
