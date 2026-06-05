@@ -1,5 +1,5 @@
 /**
- * 热点选题 — 三源聚合 + 缓存 + AI 分析
+ * 热点选题 — 双源聚合 + 缓存 + AI 分析 + SSE 推送
  *
  * 数据源：腾讯新闻 | 天行数据（聚合微博/抖音/百度/知乎）
  * 缓存：15 分钟 TTL，内存 Map
@@ -104,6 +104,50 @@ function mergeTopics(allTopics: HotTopic[]): HotTopic[] {
   return merged.slice(0, 50)
 }
 
+// ===== JSON 修复工具 =====
+
+/** 尝试修复 AI 返回的残缺 JSON（补逗号、去尾逗号、截断修复等） */
+function parseAIJson(raw: string): any {
+  // 策略1: 直接解析
+  try { return JSON.parse(raw) } catch {}
+
+  // 策略2: 提取 ```json ... ``` 代码块
+  const codeMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (codeMatch) {
+    try { return JSON.parse(codeMatch[1]) } catch {}
+    // 修复后再试
+    try { return JSON.parse(repairJSON(codeMatch[1])) } catch {}
+  }
+
+  // 策略3: 提取第一个 { 到最后一个 } 之间的内容
+  const firstBrace = raw.indexOf("{")
+  const lastBrace = raw.lastIndexOf("}")
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    const extracted = raw.slice(firstBrace, lastBrace + 1)
+    try { return JSON.parse(extracted) } catch {}
+    try { return JSON.parse(repairJSON(extracted)) } catch {}
+  }
+
+  // 策略4: 修复原始文本再试
+  try { return JSON.parse(repairJSON(raw)) } catch {}
+
+  throw new Error("无法解析 AI 返回的 JSON")
+}
+
+/** 修复常见 AI JSON 错误：尾逗号、连续逗号、缺逗号 */
+function repairJSON(s: string): string {
+  return s
+    .replace(/,\s*}/g, "}")           // 去除对象尾逗号
+    .replace(/,\s*\]/g, "]")           // 去除数组尾逗号
+    .replace(/,\s*,/g, ",")            // 去除双逗号
+    .replace(/\n\s*"([^"]+)":/g, '\n,"$1":') // 补缺逗号（换行后引号前无逗号）
+    .replace(/\}(\s*)\{/g, "},$1{")    // 相邻对象间补逗号
+    .replace(/\](\s*)\[/g, "],$1[")    // 相邻数组间补逗号
+    .replace(/\](\s*)\{/g, "],$1{")    // 数组对象间补逗号
+    .replace(/\}(\s*)\[/g, "},$1[")    // 对象数组间补逗号
+    .replace(/^\s*,\s*/m, "")          // 清除行首孤立逗号
+}
+
 // ===== AI 分析 =====
 
 async function analyzeTrends(topics: HotTopic[]): Promise<HotAnalysis[]> {
@@ -146,9 +190,7 @@ ${topTitles}
 
     if (!result) throw new Error("AI 返回为空")
 
-    // 提取 JSON
-    const match = result.match(/```(?:json)?\s*([\s\S]*?)```/) || result.match(/(\{[\s\S]*\})/)
-    const json = match ? JSON.parse(match[1]) : JSON.parse(result)
+    const json = parseAIJson(result)
 
     return (json.topics || []).map((t: any) => ({
       topicTitle: String(t.topicTitle || ""),
