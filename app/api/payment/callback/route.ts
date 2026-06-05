@@ -22,7 +22,10 @@ export async function GET(request: NextRequest) {
   const clientIP = xff?.split(',')[0]?.trim() || realIp || '127.0.0.1'
   console.log(`[payment] 回调收到: IP=${clientIP}, xff=${xff}, realIp=${realIp}, params=${JSON.stringify(params)}`)
 
-  if (clientIP !== '127.0.0.1' && clientIP !== '::1' && clientIP !== 'localhost') {
+  // 允许所有 localhost 变体：IPv4, IPv6, IPv4-mapped IPv6
+  const isLocalhost = clientIP === '127.0.0.1' || clientIP === '::1' || clientIP === 'localhost'
+    || clientIP?.includes('127.0.0.1')  // 匹配 ::ffff:127.0.0.1 等 IPv4-mapped 格式
+  if (!isLocalhost) {
     console.warn(`[payment] 非本地回调 IP 被拒: ${clientIP}`)
     return new NextResponse("fail", { status: 403 })
   }
