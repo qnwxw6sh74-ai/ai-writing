@@ -2,7 +2,7 @@
  * 热点选题 — 三源聚合 + 缓存 + AI 分析
  *
  * 数据源：腾讯新闻 | 天行数据（聚合微博/抖音/百度/知乎）
- * 缓存：30 分钟 TTL，内存 Map
+ * 缓存：15 分钟 TTL，内存 Map
  * AI：分析上升趋势 + 写作建议
  */
 import { chatCompletion } from "@/lib/ai-client"
@@ -34,7 +34,7 @@ interface CacheEntry {
 }
 
 // ===== 缓存 =====
-const CACHE_TTL_MS = 30 * 60_000
+const CACHE_TTL_MS = 15 * 60_000
 let cache: CacheEntry | null = null
 
 function getCache(): CacheEntry | null {
@@ -220,4 +220,12 @@ export async function getHotTopics(): Promise<{
   cache = entry
 
   return { ...entry, isCached: false }
+}
+
+// ===== 自动刷新（每 15 分钟拉取一次，保持热点新鲜）=====
+if (typeof globalThis !== "undefined" && !(globalThis as any).__hotTopicsTimer) {
+  ;(globalThis as any).__hotTopicsTimer = setInterval(() => {
+    cache = null
+    getHotTopics().catch(() => {})
+  }, CACHE_TTL_MS)
 }
