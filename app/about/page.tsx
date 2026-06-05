@@ -78,7 +78,7 @@ export default async function AboutPage() {
                   {section.list.map((item, i) => (
                     <li key={i} className="flex items-start gap-2">
                       <span className="text-red-500 mt-0.5">•</span>
-                      <span dangerouslySetInnerHTML={{ __html: item }} />
+                      <span>{item}</span>
                     </li>
                   ))}
                 </ul>

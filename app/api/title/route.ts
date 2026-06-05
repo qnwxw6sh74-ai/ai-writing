@@ -12,6 +12,9 @@ export async function POST(request: NextRequest) {
     if (!keyword) {
       return NextResponse.json({ error: "关键词不能为空" }, { status: 400 })
     }
+    if (typeof keyword === "string" && keyword.length > 200) {
+      return NextResponse.json({ error: "关键词过长，最多200字" }, { status: 400 })
+    }
 
     // === 服务端积分检查 ===
     const ip = getUserIdentifier(

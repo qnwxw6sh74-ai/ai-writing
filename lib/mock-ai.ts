@@ -14,7 +14,7 @@ interface GenerateTitleParams {
 
 const mockArticles: Record<string, string[]> = {
   '情感': [
-    `# ${'关键词'}：那些说不出口的爱，最让人心疼
+    `# {keyword}：那些说不出口的爱，最让人心疼
 
 在这个快节奏的时代，我们习惯了用微信表达一切。可是有些话，打好了又删，删了又打，最后还是没能发送出去。
 
@@ -196,7 +196,7 @@ export function generateMockArticle(params: GenerateArticleParams): string {
     result += `\n\n${generateExtraParagraph(keyword)}`
   }
 
-  return result.substring(0, Math.max(result.length, wordCount))
+  return result.substring(0, Math.min(result.length, wordCount))
 }
 
 export function generateMockTitles(params: GenerateTitleParams): string[] {

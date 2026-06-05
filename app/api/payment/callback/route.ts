@@ -12,6 +12,15 @@ import pool from "@/lib/db"
  * 返回纯文本 "success" / "fail"（V免签协议要求）
  */
 export async function GET(request: NextRequest) {
+  // 仅允许本地请求（V免签 PHP 与本站同机部署）
+  const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || '127.0.0.1'
+  if (clientIP !== '127.0.0.1' && clientIP !== '::1' && clientIP !== 'localhost') {
+    console.warn(`[payment] 非本地回调 IP: ${clientIP}`)
+    return new NextResponse("fail", { status: 403 })
+  }
+
   const { searchParams } = new URL(request.url)
   const payId = searchParams.get("payId") || ""
   const param = searchParams.get("param") || ""

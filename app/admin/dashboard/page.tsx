@@ -284,8 +284,8 @@ export default function AdminDashboardPage() {
     fetchChangelogs()
   }
 
-  const handleLogout = () => {
-    document.cookie = "admin_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {})
     router.push("/admin/login")
   }
 

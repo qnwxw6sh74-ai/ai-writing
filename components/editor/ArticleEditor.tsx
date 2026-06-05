@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
-import { Bold, Heading2, Quote, Undo2, Redo2, Pencil } from "lucide-react"
+import { useState, useCallback } from "react"
+import { Pencil, Check } from "lucide-react"
 
 interface Props {
   content: string
@@ -9,18 +9,18 @@ interface Props {
 }
 
 export function ArticleEditor({ content, onContentChange }: Props) {
-  const editorRef = useRef<HTMLDivElement>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [text, setText] = useState(content)
 
-  const execCmd = useCallback((cmd: string, val?: string) => {
-    document.execCommand(cmd, false, val)
-    editorRef.current?.focus()
-    onContentChange?.(editorRef.current?.innerHTML || "")
-  }, [onContentChange])
+  const handleSave = useCallback(() => {
+    onContentChange?.(text)
+    setIsEditing(false)
+  }, [text, onContentChange])
 
-  const handleInput = () => {
-    onContentChange?.(editorRef.current?.innerHTML || "")
-  }
+  const handleCancel = useCallback(() => {
+    setText(content)
+    setIsEditing(false)
+  }, [content])
 
   if (!isEditing) {
     return (
@@ -31,7 +31,7 @@ export function ArticleEditor({ content, onContentChange }: Props) {
             <span className="text-sm text-zinc-500">约 {content.length} 字</span>
             <button
               type="button"
-              onClick={() => setIsEditing(true)}
+              onClick={() => { setText(content); setIsEditing(true) }}
               className="flex items-center gap-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-lg transition-colors border border-zinc-700"
             >
               <Pencil size={16} />
@@ -50,74 +50,27 @@ export function ArticleEditor({ content, onContentChange }: Props) {
     <div className="bg-zinc-900/50 rounded-xl border border-zinc-800 mt-6 overflow-hidden">
       {/* 工具栏 */}
       <div className="flex items-center gap-1 px-4 py-2 border-b border-zinc-800 bg-zinc-900/80 sticky top-0 z-10">
-        <button type="button" onClick={() => execCmd("bold")} title="加粗"
-          className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
-          <Bold size={16} />
-        </button>
-        <button type="button" onClick={() => execCmd("formatBlock", "h2")} title="标题"
-          className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
-          <Heading2 size={16} />
-        </button>
-        <button type="button" onClick={() => execCmd("formatBlock", "blockquote")} title="引用"
-          className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
-          <Quote size={16} />
-        </button>
-        <span className="w-px h-5 bg-zinc-700 mx-1" />
-        <button type="button" onClick={() => execCmd("undo")} title="撤销"
-          className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
-          <Undo2 size={16} />
-        </button>
-        <button type="button" onClick={() => execCmd("redo")} title="重做"
-          className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors">
-          <Redo2 size={16} />
-        </button>
+        <span className="text-xs text-zinc-500 mr-2">编辑中 — 可自由修改正文内容</span>
         <span className="flex-1" />
-        <span className="text-xs text-zinc-600 mr-2">编辑中...</span>
-        <button type="button" onClick={() => setIsEditing(false)}
-          className="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded transition-colors">
+        <button type="button" onClick={handleCancel}
+          className="text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 px-3 py-1 rounded transition-colors">
+          取消
+        </button>
+        <button type="button" onClick={handleSave}
+          className="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded transition-colors flex items-center gap-1">
+          <Check size={14} />
           完成编辑
         </button>
       </div>
 
-      {/* 编辑区 */}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        className="p-6 outline-none focus:ring-2 focus:ring-inset focus:ring-red-500/50 min-h-[300px] prose max-w-none leading-relaxed text-zinc-200"
-        dangerouslySetInnerHTML={{
-          __html: contentToHtml(content),
-        }}
-        data-editor
+      {/* 编辑区 — textarea 替代 contentEditable+execCommand */}
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        className="w-full p-6 outline-none bg-transparent text-zinc-200 resize-y min-h-[300px] leading-relaxed font-mono text-sm border-0 focus:ring-2 focus:ring-inset focus:ring-red-500/50"
+        placeholder="开始编辑文章内容..."
+        spellCheck={false}
       />
-
-      {/* 编辑区的基础样式 */}
-      <style jsx>{`
-        [data-editor] h1 { font-size: 1.5rem; font-weight: 700; margin: 1rem 0 0.5rem; color: #fff; }
-        [data-editor] h2 { font-size: 1.2rem; font-weight: 700; margin: 0.8rem 0 0.4rem; color: #fca5a5; }
-        [data-editor] h3 { font-size: 1.05rem; font-weight: 600; margin: 0.6rem 0 0.3rem; color: #fecaca; }
-        [data-editor] p { margin: 0.5rem 0; }
-        [data-editor] strong, [data-editor] b { color: #fca5a5; }
-        [data-editor] blockquote { border-left: 3px solid #dc2626; padding-left: 1rem; margin: 0.8rem 0; color: #a1a1aa; font-style: italic; }
-        [data-editor]:focus { outline: none; }
-      `}</style>
     </div>
   )
-}
-
-/** 将 markdown 风格的纯文本转为基础 HTML */
-function contentToHtml(content: string): string {
-  return content
-    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/<br>\n/g, "<br>")
-    .split("\n\n").map(para => {
-      const trimmed = para.trim()
-      if (!trimmed) return ""
-      if (trimmed.startsWith("<h") || trimmed.startsWith("<blockquote")) return trimmed
-      return `<p>${trimmed.replace(/\n/g, "<br>")}</p>`
-    }).join("\n")
 }

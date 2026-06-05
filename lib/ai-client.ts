@@ -76,7 +76,7 @@ export async function chatCompletion(
 
     if (!res.ok) {
       const err = await res.text()
-      console.error(`[AI] API 错误 (${res.status}):`, err.slice(0, 500))
+      console.error(`[AI] API 错误 (${res.status}):`, err.slice(0, 200))
       return null
     }
 

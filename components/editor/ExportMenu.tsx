@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Download, FileText, FileCode2, FileArchive, Printer, Smartphone, Copy, Check } from "lucide-react"
 import { processForWechat } from "@/lib/wechat-format"
+import { sanitizeHtml } from "@/lib/sanitize"
 
 interface Props {
   /** 原始 markdown 或纯文本内容 */
@@ -53,11 +54,9 @@ export function ExportMenu({ content, editorRef }: Props) {
     try {
       const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx")
       const text = getEditedText()
-      // 按空行分段
       const paragraphs = text.split("\n").filter(Boolean)
 
       const children = paragraphs.map((para) => {
-        // 判断是否为标题（以 # 或 ** 开头）
         const isHeading = /^#{1,3}\s/.test(para) || /^\*\*.*\*\*$/.test(para.trim())
         const cleanText = para.replace(/^#{1,3}\s/, "").replace(/^\*\*|\*\*$/g, "")
         return new Paragraph({
@@ -76,15 +75,14 @@ export function ExportMenu({ content, editorRef }: Props) {
       a.href = url; a.download = "article.docx"; a.click()
       URL.revokeObjectURL(url)
     } catch {
-      // docx 加载失败时降级为 HTML 下载
-      downloadFile(getEditedHtml(), "article.html", "text/html")
+      downloadFile(sanitizeHtml(getEditedHtml()), "article.html", "text/html")
     }
     setOpen(false)
   }
 
   /** 导出 PDF（浏览器打印） */
   const exportPdf = () => {
-    const html = getEditedHtml()
+    const html = sanitizeHtml(getEditedHtml())
     const w = window.open("", "_blank")
     if (w) {
       w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>打印</title>
