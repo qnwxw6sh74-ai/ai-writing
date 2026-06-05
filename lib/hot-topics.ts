@@ -155,39 +155,31 @@ function repairJSON(s: string): string {
 async function analyzeTrends(topics: HotTopic[]): Promise<HotAnalysis[]> {
   const topTitles = topics.slice(0, 30).map(t => `${t.rank}. [${t.source}] ${t.title}`).join("\n")
 
-  const systemPrompt = `你是一位资深自媒体运营和数据分析专家，擅长识别处于上升期的热点话题。请根据当前热点列表，筛选出最有公众号写作价值的话题，给出具体写作建议。`
+  const systemPrompt = `你是一位资深自媒体运营和数据分析专家。只分析处于上升期的热点话题，筛选最有公众号写作价值的，给出具体写作角度。只返回 JSON，不要任何解释。`
 
-  const userPrompt = `以下是当前全网热搜话题列表：
+  const userPrompt = `以下是当前全网热搜：
 
 ${topTitles}
 
-请分析：
-1. 哪些话题处于"上升期"（热度快速增长）？哪些已"稳定"？哪些在"下降"？
-2. 对每个上升期话题，给出 1-10 分的"公众号写作潜力"评分
-3. 对评分≥7 的话题，给出 2-3 个具体的写作角度建议
+从以上列表中，仅筛选出处于"上升期"（热度正在快速增长）的话题，每个话题给出：
+- trend: "rising"
+- trendLabel: 简短趋势描述（如"快速上升"）
+- writingPotential: 1-10 公众号写作潜力评分
+- suggestions: 对评分≥7 的话题给2-3个写作角度
 
-请严格按照以下 JSON 格式返回（不要包含其他文字）：
-{
-  "topics": [
-    {
-      "topicTitle": "话题名称",
-      "trend": "rising",
-      "trendLabel": "上升期",
-      "writingPotential": 9,
-      "suggestions": ["角度1", "角度2"]
-    }
-  ]
-}`
+只返回 JSON，格式严格如下（未列出的不做分析）：
+{"topics":[{"topicTitle":"话题名","trend":"rising","trendLabel":"快速上升","writingPotential":9,"suggestions":["角度1","角度2"]}]}`
 
   try {
     const resolvedModel = await resolveModel()
     const overrides = resolvedModel ? buildAIConfigFromModel(resolvedModel) : undefined
+    // 大量话题需要足够输出空间，避免 JSON 截断
     const result = await chatCompletion(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      { ...overrides, temperature: 0.3, maxTokens: 3000 }
+      { ...overrides, temperature: 0.3, maxTokens: 6000 }
     )
 
     if (!result) {
