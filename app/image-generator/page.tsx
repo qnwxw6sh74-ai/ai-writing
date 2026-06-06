@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: "输入文字描述，选择图片尺寸，即可生成高质量、无版权风险的公众号配图。",
 }
 
+export const dynamic = "force-dynamic"
+
 export default function ImageGeneratorPage() {
   return (
     <div className="bg-zinc-950 min-h-screen">
