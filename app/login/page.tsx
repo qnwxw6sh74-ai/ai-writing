@@ -35,6 +35,21 @@ function LoginForm() {
     e.preventDefault()
     setError('')
     setSuccess('')
+
+    // 前端校验
+    if (!email.trim()) {
+      setError('请输入邮箱地址')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('请输入有效的邮箱地址')
+      return
+    }
+    if (!password) {
+      setError('请输入密码')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -90,6 +105,7 @@ function LoginForm() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="your@email.com"
                 required
+                maxLength={254}
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-red-500"
               />
             </div>
@@ -105,6 +121,7 @@ function LoginForm() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="输入密码"
                 required
+                maxLength={128}
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-red-500"
               />
             </div>

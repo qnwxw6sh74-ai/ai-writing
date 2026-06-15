@@ -17,6 +17,16 @@ const USER_PAGE_ROUTES = ["/style-lab", "/pricing", "/profile", "/originality-ch
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // ========== 强制 HTTPS 跳转 ==========
+  const proto = request.headers.get("x-forwarded-proto")
+  const host = request.headers.get("host") || ""
+  // 仅对生产域名生效，localhost 不跳转
+  if (proto === "http" && host.includes("wyrunwu.com")) {
+    const httpsUrl = new URL(request.url)
+    httpsUrl.protocol = "https"
+    return NextResponse.redirect(httpsUrl, 301)
+  }
+
   // ========== 管理员 API 保护 ==========
   if (pathname.startsWith("/api/admin/") && !pathname.startsWith("/api/admin/login")) {
     const token = request.cookies.get("admin_token")?.value

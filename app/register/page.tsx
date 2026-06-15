@@ -16,6 +16,25 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
     setResult(null)
+
+    // 前端校验
+    if (!email.trim()) {
+      setError('请输入邮箱地址')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('请输入有效的邮箱地址')
+      return
+    }
+    if (!password || password.length < 6) {
+      setError('密码至少需要6位')
+      return
+    }
+    if (nickname.length > 50) {
+      setError('昵称最多50个字符')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -82,6 +101,7 @@ export default function RegisterPage() {
                   onChange={e => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   required
+                  maxLength={254}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-red-500"
                 />
               </div>
@@ -96,6 +116,7 @@ export default function RegisterPage() {
                   value={nickname}
                   onChange={e => setNickname(e.target.value)}
                   placeholder="给自己起个名字"
+                  maxLength={50}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-red-500"
                 />
               </div>
@@ -112,6 +133,7 @@ export default function RegisterPage() {
                   placeholder="至少6位密码"
                   required
                   minLength={6}
+                  maxLength={128}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-red-500"
                 />
               </div>
