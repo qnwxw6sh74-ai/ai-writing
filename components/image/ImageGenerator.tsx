@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { ImageIcon, Loader2, Download, RefreshCw, AlertCircle } from "lucide-react"
+import { getUserErrorMessage } from "@/lib/fetch-utils"
 
 const sizes = [
   { label: "公众号封面 (900×383)", value: "900x383" },
@@ -56,8 +57,8 @@ export function ImageGenerator() {
           used: data.credits.used,
         })
       }
-    } catch {
-      setError("网络异常，请稍后重试")
+    } catch (e) {
+      setError(getUserErrorMessage(e, "图片生成失败，请稍后重试"))
     } finally {
       setLoading(false)
     }
