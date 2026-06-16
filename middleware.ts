@@ -5,9 +5,7 @@ if (!process.env.JWT_SECRET) {
   console.warn("⚠️  WARNING: JWT_SECRET 环境变量未设置！请在生产环境中配置强密钥。")
 }
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || process.env.ADMIN_PASSWORD || "ai-writing-secret-key-change-me"
-)
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
 
 /** 需要用户登录的 API 路由 */
 const USER_API_ROUTES = ["/api/payment/", "/api/style/"]
@@ -20,8 +18,10 @@ export async function middleware(request: NextRequest) {
   // ========== 强制 HTTPS 跳转 ==========
   const proto = request.headers.get("x-forwarded-proto")
   const host = request.headers.get("host") || ""
-  // 仅对生产域名生效，localhost 不跳转
-  if (proto === "http" && host.includes("wyrunwu.com")) {
+  // Cloudflare 已处理 HTTPS（CF-Visitor = 用户真实协议），跳过否则死循环
+  const isCloudflare = !!(request.headers.get("CF-Ray") || request.headers.get("CF-Visitor"))
+  // 仅对生产域名生效，且不重复 Cloudflare 的 HTTPS
+  if (proto === "http" && host.includes("wyrunwu.com") && !isCloudflare) {
     const httpsUrl = new URL(request.url)
     httpsUrl.protocol = "https"
     httpsUrl.host = host // 使用外部域名
