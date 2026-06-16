@@ -9,8 +9,8 @@
 
 const AGNES_BASE_URL = "https://apihub.agnes-ai.com/v1"
 const IMAGE_MODEL = "agnes-image-2.1-flash"
-const FETCH_TIMEOUT_MS = 45_000 // 单次请求超时
-const MAX_RETRIES = 2
+const FETCH_TIMEOUT_MS = 30_000 // 单次请求超时（Cloudflare 免费版 100s 限制）
+const MAX_RETRIES = 1
 
 export interface GenerateImageParams {
   prompt: string

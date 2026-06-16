@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { generateImage } from "@/lib/image-gen"
 import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 
+export const maxDuration = 120 // 允许图片生成最多 120 秒
+
 /**
  * POST /api/image/generate
  * AI 智能配图 — 调用 Agnes 文生图，每张消耗 1 积分
