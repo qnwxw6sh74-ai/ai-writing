@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { ImageIcon, Loader2, Download, RefreshCw, AlertCircle } from "lucide-react"
 import { getUserErrorMessage } from "@/lib/fetch-utils"
 
@@ -28,19 +28,21 @@ export function ImageGenerator() {
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [credits, setCredits] = useState<CreditsInfo | null>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const stopPoll = useCallback(() => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
-  }, [])
-
-  useEffect(() => () => stopPoll(), [stopPoll])
+  // 组件卸载时清理 timer
+  const [timerId, setTimerId] = useState(0)
+  useEffect(() => {
+    return () => { if (timerId) window.clearTimeout(timerId) }
+  }, [timerId])
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       setError("请输入图片描述")
       return
     }
+
+    // 清理旧状态
+    if (timerId) window.clearTimeout(timerId)
     setError(null)
     setImageUrl(null)
     setLoading(true)
@@ -65,53 +67,56 @@ export function ImageGenerator() {
         setCredits({ remaining: data.credits.remaining, used: data.credits.used })
       }
 
-      // 2. 轮询状态
+      // 2. 轮询状态（用 setTimeout 递归，比 setInterval 更可靠）
       const jobId = data.jobId
       let polls = 0
-      const maxPolls = 45 // 最多轮询 90 秒 (45 × 2s)
+      const maxPolls = 45
 
-      stopPoll()
-      pollRef.current = setInterval(async () => {
+      const checkStatus = () => {
         polls++
         setStatusText(`正在生成... (${Math.ceil(polls * 2)}s)`)
 
-        try {
-          const sRes = await fetch(`/api/image/status?jobId=${jobId}`)
-          const sData = await sRes.json()
+        fetch(`/api/image/status?jobId=${jobId}`)
+          .then(r => r.json())
+          .then(sData => {
+            if (sData.status === "done" && sData.imageUrl) {
+              setImageUrl(sData.imageUrl)
+              setLoading(false)
+              setStatusText("")
+              return
+            }
+            if (sData.status === "error") {
+              setError(sData.error || "图片生成失败")
+              setLoading(false)
+              setStatusText("")
+              return
+            }
+            if (polls >= maxPolls) {
+              setError("生成超时，请稍后重试")
+              setLoading(false)
+              setStatusText("")
+              return
+            }
+            // 继续轮询
+            const id = window.setTimeout(checkStatus, 2000)
+            setTimerId(id)
+          })
+          .catch(() => {
+            if (polls >= maxPolls) {
+              setError("查询状态失败，请稍后重试")
+              setLoading(false)
+              setStatusText("")
+            } else {
+              const id = window.setTimeout(checkStatus, 2000)
+              setTimerId(id)
+            }
+          })
+      }
 
-          if (sData.status === "done" && sData.imageUrl) {
-            stopPoll()
-            setImageUrl(sData.imageUrl)
-            setLoading(false)
-            setStatusText("")
-            return
-          }
-
-          if (sData.status === "error") {
-            stopPoll()
-            setError(sData.error || "图片生成失败")
-            setLoading(false)
-            setStatusText("")
-            return
-          }
-
-          if (polls >= maxPolls) {
-            stopPoll()
-            setError("生成超时，请稍后重试")
-            setLoading(false)
-            setStatusText("")
-          }
-        } catch {
-          if (polls >= maxPolls) {
-            stopPoll()
-            setError("查询状态失败，请稍后重试")
-            setLoading(false)
-            setStatusText("")
-          }
-        }
-      }, 2000)
+      // 启动轮询
+      const id = window.setTimeout(checkStatus, 2000)
+      setTimerId(id)
     } catch (e) {
-      stopPoll()
       setError(getUserErrorMessage(e, "图片生成失败，请稍后重试"))
       setLoading(false)
     }
@@ -129,7 +134,6 @@ export function ImageGenerator() {
       a.click()
       URL.revokeObjectURL(url)
     } catch {
-      // 跨域图片无法 fetch 时，直接新窗口打开
       window.open(imageUrl, "_blank")
     }
   }
@@ -137,7 +141,6 @@ export function ImageGenerator() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="bg-zinc-900/50 rounded-xl border border-zinc-800 p-6 space-y-4">
-        {/* 描述输入 */}
         <div>
           <label className="block text-sm font-semibold text-zinc-300 mb-2">图片描述</label>
           <textarea
@@ -149,7 +152,6 @@ export function ImageGenerator() {
           />
         </div>
 
-        {/* 尺寸 + 风格 */}
         <div className="flex gap-4">
           <div className="flex-1">
             <label className="block text-sm font-semibold text-zinc-300 mb-2">图片尺寸</label>
@@ -165,7 +167,6 @@ export function ImageGenerator() {
           </div>
         </div>
 
-        {/* 生成按钮 */}
         <button
           type="button"
           onClick={handleGenerate}
@@ -185,7 +186,6 @@ export function ImageGenerator() {
           )}
         </button>
 
-        {/* 积分提示 */}
         {credits && (
           <p className="text-center text-xs text-zinc-500">
             本次生成消耗 1 积分 · 剩余 {credits.remaining} 积分
@@ -193,7 +193,6 @@ export function ImageGenerator() {
         )}
       </div>
 
-      {/* 错误提示 */}
       {error && (
         <div className="mt-4 bg-red-900/20 border border-red-800 rounded-lg p-4 flex items-start gap-3">
           <AlertCircle size={18} className="text-red-400 mt-0.5 shrink-0" />
@@ -201,7 +200,6 @@ export function ImageGenerator() {
         </div>
       )}
 
-      {/* 图片展示区 */}
       {(imageUrl || loading) && (
         <div className="mt-6 bg-zinc-900/50 rounded-xl border border-zinc-800 p-4">
           <div className="flex items-center justify-between mb-3">
@@ -248,7 +246,6 @@ export function ImageGenerator() {
         </div>
       )}
 
-      {/* 空状态 — 未生成时展示 */}
       {!imageUrl && !loading && (
         <div className="mt-6 bg-zinc-900/50 rounded-xl border border-zinc-800 p-12 text-center">
           <div className="text-6xl mb-4">🖼️</div>
