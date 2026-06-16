@@ -117,6 +117,7 @@ export const config = {
     "/api/style/:path*",
     "/api/auth/:path*",
     "/api/generate",
+    "/api/image/:path*",
     "/api/credits",
     "/api/article/confirm",
     "/api/article/rewrite",

@@ -29,7 +29,7 @@ export async function getFreeCredits(): Promise<number> {
     if (val !== "" && val !== undefined) return Number(val) || 0
   } catch { /* ignore */ }
 
-  return 3
+  return 10
 }
 
 /**
