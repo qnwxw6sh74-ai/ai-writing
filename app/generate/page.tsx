@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArticleForm } from "@/components/generate/ArticleForm"
 import { ArticleOutput } from "@/components/generate/ArticleOutput"
 import { PaymentModal } from "@/components/generate/PaymentModal"
+import { getUserErrorMessage } from "@/lib/fetch-utils"
 
 interface CreditsInfo {
   paymentEnabled: boolean
@@ -24,7 +25,7 @@ const quickLinks = [
   { emoji: "📚", label: "使用教程", href: "/tutorials" },
 ]
 
-export default function GeneratePage() {
+function GenerateContent() {
   const [content, setContent] = useState("")
   const [contentB, setContentB] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -124,8 +125,8 @@ export default function GeneratePage() {
       } else {
         fetchCredits()
       }
-    } catch {
-      setErrorMsg("网络连接失败，请检查网络后重试")
+    } catch (e) {
+      setErrorMsg(getUserErrorMessage(e, "网络连接失败，请检查网络后重试"))
     } finally {
       setIsLoading(false)
     }
@@ -215,5 +216,13 @@ export default function GeneratePage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function GeneratePage() {
+  return (
+    <Suspense fallback={<div className="bg-zinc-950 min-h-screen" />}>
+      <GenerateContent />
+    </Suspense>
   )
 }

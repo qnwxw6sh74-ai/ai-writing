@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Sparkles, Loader2 } from "lucide-react"
+import { getUserErrorMessage } from "@/lib/fetch-utils"
 
 interface Props {
   containerRef: React.RefObject<HTMLDivElement | null>
@@ -101,8 +102,8 @@ export function RewriteToolbar({ containerRef, articleHash, onReplace }: Props) 
 
       // 清除选中
       window.getSelection()?.removeAllRanges()
-    } catch {
-      setError("网络错误")
+    } catch (e) {
+      setError(getUserErrorMessage(e, "服务器异常，请稍后重试"))
     } finally {
       setLoading("")
     }

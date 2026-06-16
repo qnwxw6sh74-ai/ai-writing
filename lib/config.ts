@@ -18,13 +18,15 @@ export async function getPaymentEnabled(): Promise<boolean> {
  */
 export async function getFreeCredits(): Promise<number> {
   // 环境变量优先（.env.local 是权威配置来源）
-  const envVal = parseInt(process.env.FREE_CREDITS || "0")
-  if (envVal > 0) return envVal
+  const envVal = process.env.FREE_CREDITS
+  if (envVal !== undefined && envVal !== "") {
+    return Number(envVal) || 0
+  }
 
   // 回退：读 DB site_config
   try {
     const val = await getConfig("free_credits", "")
-    if (val) return parseInt(String(val)) || 3
+    if (val !== "" && val !== undefined) return Number(val) || 0
   } catch { /* ignore */ }
 
   return 3

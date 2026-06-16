@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Mail, Lock, User } from 'lucide-react'
+import { getUserErrorMessage } from '@/lib/fetch-utils'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
@@ -51,8 +52,8 @@ export default function RegisterPage() {
       }
 
       setResult(data)
-    } catch {
-      setError('网络错误，请稍后重试')
+    } catch (e) {
+      setError(getUserErrorMessage(e))
     } finally {
       setLoading(false)
     }

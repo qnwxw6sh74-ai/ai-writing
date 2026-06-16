@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Lock, ArrowLeft } from 'lucide-react'
+import { getUserErrorMessage } from '@/lib/fetch-utils'
 
 function ResetForm() {
   const router = useRouter()
@@ -48,8 +49,8 @@ function ResetForm() {
       } else {
         setError(data.error || '重置失败')
       }
-    } catch {
-      setError('网络错误，请稍后重试')
+    } catch (e) {
+      setError(getUserErrorMessage(e))
     } finally {
       setLoading(false)
     }

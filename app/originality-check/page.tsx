@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Shield, AlertTriangle, Loader2, Sparkles, TrendingUp } from "lucide-react"
+import { getUserErrorMessage } from "@/lib/fetch-utils"
 
 interface CheckResult {
   score: number
@@ -52,8 +53,8 @@ export default function OriginalityCheckPage() {
       }
 
       setResult(data)
-    } catch {
-      setError("网络错误，请稍后重试")
+    } catch (e) {
+      setError(getUserErrorMessage(e))
     } finally {
       setIsChecking(false)
     }

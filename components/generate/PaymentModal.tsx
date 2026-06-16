@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { X, QrCode, Loader2, Check, Sparkles } from "lucide-react"
+import { getUserErrorMessage } from "@/lib/fetch-utils"
 
 interface Plan {
   id: number; name: string; price: number; credits: number; description: string; is_trial: number
@@ -72,8 +73,8 @@ export function PaymentModal({ open, onClose, onPaid }: Props) {
         setResult({ message: data.message || "创建支付订单失败，请稍后重试" })
       }
       if (data.payId) startPoll(data.payId, data.orderId || data.payId)
-    } catch {
-      setResult({ message: "网络错误" })
+    } catch (e) {
+      setResult({ message: getUserErrorMessage(e, "支付服务异常，请稍后重试") })
       if (payWindow && !payWindow.closed) payWindow.close()
     } finally {
       setPaying(null)

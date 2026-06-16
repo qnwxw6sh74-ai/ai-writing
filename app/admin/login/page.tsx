@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Lock, Shield } from "lucide-react"
+import { getUserErrorMessage } from "@/lib/fetch-utils"
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -27,8 +28,8 @@ export default function AdminLoginPage() {
         const data = await res.json()
         setError(data.error || "登录失败")
       }
-    } catch {
-      setError("网络错误，请稍后重试")
+    } catch (e) {
+      setError(getUserErrorMessage(e))
     } finally {
       setLoading(false)
     }

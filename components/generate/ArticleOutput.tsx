@@ -5,6 +5,7 @@ import { Shield, CheckCircle, Loader2, Lock, Copy, Pencil } from "lucide-react"
 import { ArticleEditor } from "@/components/editor/ArticleEditor"
 import { ExportMenu } from "@/components/editor/ExportMenu"
 import { RewriteToolbar } from "@/components/editor/RewriteToolbar"
+import { getUserErrorMessage } from "@/lib/fetch-utils"
 
 /** 简单字符串哈希（Java String.hashCode 算法） */
 function hashCode(s: string): string {
@@ -75,8 +76,8 @@ export function ArticleOutput({ content, contentB, title, credits, onCreditsChan
       setConfirmed(true)
       onCreditsChange?.(data.credits)
       onConfirm?.()
-    } catch {
-      setConfirmError("网络错误，请稍后重试")
+    } catch (e) {
+      setConfirmError(getUserErrorMessage(e))
     } finally {
       setConfirming(false)
     }

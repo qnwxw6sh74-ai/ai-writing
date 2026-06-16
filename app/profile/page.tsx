@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { User, Settings, Key, Save, ArrowLeft, History, FileText, Download, Upload, Trash2, ChevronLeft, ChevronRight, Gift, Copy, Check } from 'lucide-react'
+import { getUserErrorMessage } from '@/lib/fetch-utils'
 
 interface HistoryItem {
   id: number
@@ -156,8 +157,8 @@ export default function ProfilePage() {
         const d = await res.json()
         setError(d.error || '保存失败')
       }
-    } catch {
-      setError('网络错误')
+    } catch (e) {
+      setError(getUserErrorMessage(e, '保存失败，请稍后重试'))
     } finally {
       setSaving(false)
     }
@@ -186,8 +187,8 @@ export default function ProfilePage() {
         const d = await res.json()
         setError(d.error || '修改失败')
       }
-    } catch {
-      setError('网络错误')
+    } catch (e) {
+      setError(getUserErrorMessage(e, '密码修改失败，请稍后重试'))
     } finally {
       setSaving(false)
     }

@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Mail, Lock } from 'lucide-react'
+import { getUserErrorMessage } from '@/lib/fetch-utils'
 
 function LoginForm() {
   const router = useRouter()
@@ -67,8 +68,8 @@ function LoginForm() {
 
       window.dispatchEvent(new Event('auth-changed'))
       router.push('/generate')
-    } catch {
-      setError('网络错误，请稍后重试')
+    } catch (e) {
+      setError(getUserErrorMessage(e))
     } finally {
       setLoading(false)
     }

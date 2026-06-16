@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Mail, ArrowLeft } from 'lucide-react'
+import { getUserErrorMessage } from '@/lib/fetch-utils'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -29,8 +30,8 @@ export default function ForgotPasswordPage() {
       } else {
         setError(data.error || '发送失败')
       }
-    } catch {
-      setError('网络错误，请稍后重试')
+    } catch (e) {
+      setError(getUserErrorMessage(e))
     } finally {
       setLoading(false)
     }
