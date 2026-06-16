@@ -76,7 +76,7 @@ export function ImageGenerator() {
         polls++
         setStatusText(`正在生成... (${Math.ceil(polls * 2)}s)`)
 
-        fetch(`/api/image/status?jobId=${jobId}`)
+        fetch(`/api/image/status?jobId=${jobId}&t=${Date.now()}`)
           .then(r => r.json())
           .then(sData => {
             if (sData.status === "done" && sData.imageUrl) {
