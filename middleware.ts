@@ -24,7 +24,8 @@ export async function middleware(request: NextRequest) {
   if (proto === "http" && host.includes("wyrunwu.com")) {
     const httpsUrl = new URL(request.url)
     httpsUrl.protocol = "https"
-    httpsUrl.host = host // 使用外部域名而非内部 localhost:3000
+    httpsUrl.host = host // 使用外部域名
+    httpsUrl.port = ""   // 清除内部 3000 端口
     return NextResponse.redirect(httpsUrl, 301)
   }
 
