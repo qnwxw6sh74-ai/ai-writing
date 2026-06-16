@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { ImageIcon, Loader2, Download, RefreshCw, AlertCircle } from "lucide-react"
 import { getUserErrorMessage } from "@/lib/fetch-utils"
 
@@ -24,9 +24,17 @@ export function ImageGenerator() {
   const [style, setStyle] = useState("写实摄影")
 
   const [loading, setLoading] = useState(false)
+  const [statusText, setStatusText] = useState("")
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [credits, setCredits] = useState<CreditsInfo | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const stopPoll = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+  }, [])
+
+  useEffect(() => () => stopPoll(), [stopPoll])
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -36,8 +44,10 @@ export function ImageGenerator() {
     setError(null)
     setImageUrl(null)
     setLoading(true)
+    setStatusText("正在创建任务...")
 
     try {
+      // 1. 创建异步任务
       const res = await fetch("/api/image/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,19 +57,62 @@ export function ImageGenerator() {
 
       if (!res.ok) {
         setError(data.error || `生成失败 (${res.status})`)
+        setLoading(false)
         return
       }
 
-      setImageUrl(data.imageUrl)
       if (data.credits) {
-        setCredits({
-          remaining: data.credits.remaining,
-          used: data.credits.used,
-        })
+        setCredits({ remaining: data.credits.remaining, used: data.credits.used })
       }
+
+      // 2. 轮询状态
+      const jobId = data.jobId
+      let polls = 0
+      const maxPolls = 45 // 最多轮询 90 秒 (45 × 2s)
+
+      stopPoll()
+      pollRef.current = setInterval(async () => {
+        polls++
+        setStatusText(`正在生成... (${Math.ceil(polls * 2)}s)`)
+
+        try {
+          const sRes = await fetch(`/api/image/status?jobId=${jobId}`)
+          const sData = await sRes.json()
+
+          if (sData.status === "done" && sData.imageUrl) {
+            stopPoll()
+            setImageUrl(sData.imageUrl)
+            setLoading(false)
+            setStatusText("")
+            return
+          }
+
+          if (sData.status === "error") {
+            stopPoll()
+            setError(sData.error || "图片生成失败")
+            setLoading(false)
+            setStatusText("")
+            return
+          }
+
+          if (polls >= maxPolls) {
+            stopPoll()
+            setError("生成超时，请稍后重试")
+            setLoading(false)
+            setStatusText("")
+          }
+        } catch {
+          if (polls >= maxPolls) {
+            stopPoll()
+            setError("查询状态失败，请稍后重试")
+            setLoading(false)
+            setStatusText("")
+          }
+        }
+      }, 2000)
     } catch (e) {
+      stopPoll()
       setError(getUserErrorMessage(e, "图片生成失败，请稍后重试"))
-    } finally {
       setLoading(false)
     }
   }
@@ -122,7 +175,7 @@ export function ImageGenerator() {
           {loading ? (
             <>
               <Loader2 size={18} className="animate-spin" />
-              AI 正在生成图片...
+              {statusText || "AI 正在生成图片..."}
             </>
           ) : (
             <>
@@ -181,7 +234,7 @@ export function ImageGenerator() {
             {loading ? (
               <div className="flex flex-col items-center gap-3 py-16 text-zinc-500">
                 <Loader2 size={32} className="animate-spin" />
-                <p className="text-sm">AI 正在绘制中，请稍候...</p>
+                <p className="text-sm">{statusText || "AI 正在绘制中，请稍候..."}</p>
               </div>
             ) : (
               <img

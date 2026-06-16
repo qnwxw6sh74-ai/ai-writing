@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { generateImage } from "@/lib/image-gen"
+import { createImageJob } from "@/lib/image-jobs"
 import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 
-export const maxDuration = 120 // 允许图片生成最多 120 秒
+export const maxDuration = 10 // 仅创建任务，不需要长时间
 
 /**
  * POST /api/image/generate
- * AI 智能配图 — 调用 Agnes 文生图，每张消耗 1 积分
+ * AI 智能配图 — 异步模式：立即返回 jobId，后台生成，前端轮询 /api/image/status
  *
  * Body: { prompt: string, size: string, style: string }
- * size: "900x383" | "800x800" | "600x400"
  */
 export async function POST(request: NextRequest) {
   try {
@@ -47,24 +46,21 @@ export async function POST(request: NextRequest) {
       : ""
     const fullPrompt = `${prompt.trim()}，适合公众号配图，高清，无水印${styleSuffix}`
 
-    console.log(`[image-api] 用户=${userId}, IP=${ip}, size=${size}, prompt="${fullPrompt.slice(0, 80)}..."`)
+    console.log(`[image-api] 异步创建任务 user=${userId}, size=${size}, prompt="${fullPrompt.slice(0, 80)}..."`)
 
-    // === 调用图片生成 ===
-    const result = await generateImage({ prompt: fullPrompt, size })
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500 })
-    }
-
-    // === 扣 1 积分 ===
+    // === 扣 1 积分（先扣再生成，生成失败不退）===
     const updatedCredits = await deductCredits(userId, ip, "image_generate")
 
+    // === 创建异步任务 ===
+    const jobId = createImageJob(fullPrompt, size)
+
     return NextResponse.json({
-      imageUrl: result.imageUrl,
+      jobId,
       credits: updatedCredits,
+      message: "任务已创建，正在生成...",
     })
   } catch (error) {
-    console.error("[image-api] 生成失败:", error)
-    return NextResponse.json({ error: "图片生成失败，请稍后重试" }, { status: 500 })
+    console.error("[image-api] 创建任务失败:", error)
+    return NextResponse.json({ error: "创建生成任务失败，请稍后重试" }, { status: 500 })
   }
 }
