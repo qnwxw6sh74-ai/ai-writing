@@ -1,0 +1,83 @@
+import { NextRequest, NextResponse } from "next/server"
+import { getUserFromRequest } from "@/lib/auth-user"
+import pool from "@/lib/db"
+
+export const maxDuration = 15
+
+/**
+ * POST /api/generate/assemble
+ * 拼接所有段落为完整文章，添加过渡
+ * Body: { outlineId }
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const user = getUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json({ error: "请先登录" }, { status: 401 })
+    }
+
+    const { outlineId } = await request.json()
+    if (!outlineId) {
+      return NextResponse.json({ error: "缺少 outlineId" }, { status: 400 })
+    }
+
+    // 加载大纲
+    const [rows] = await pool.execute(
+      `SELECT id, user_id, title, sections, section_contents, keyword, domain, style
+       FROM generate_outlines WHERE id = ? AND user_id = ?`,
+      [outlineId, user.userId]
+    ) as any[]
+
+    if (rows.length === 0) {
+      return NextResponse.json({ error: "大纲不存在" }, { status: 404 })
+    }
+
+    const outline = rows[0]
+    let sections: any[]
+    try {
+      sections = typeof outline.sections === "string" ? JSON.parse(outline.sections) : outline.sections
+    } catch {
+      return NextResponse.json({ error: "大纲数据损坏" }, { status: 500 })
+    }
+
+    let sectionContents: Record<string, string> = {}
+    try {
+      sectionContents = outline.section_contents
+        ? (typeof outline.section_contents === "string" ? JSON.parse(outline.section_contents) : outline.section_contents)
+        : {}
+    } catch { /* ignore */ }
+
+    // 拼接：标题 + 逐段 + 段落间用小标题分隔
+    const parts: string[] = [`# ${outline.title}\n`]
+
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i]
+      const content = sectionContents[String(i)]
+      if (!content) continue
+
+      parts.push(`**${section.heading}**\n`)
+      parts.push(content)
+      parts.push("") // 段落间空行
+    }
+
+    const fullArticle = parts.join("\n").trim()
+
+    // 保存到 DB
+    try {
+      await pool.execute(
+        `UPDATE generate_outlines SET full_article = ?, status = 'completed', updated_at = NOW() WHERE id = ?`,
+        [fullArticle, outlineId]
+      )
+    } catch { /* ignore */ }
+
+    return NextResponse.json({
+      fullArticle,
+      title: outline.title,
+      sectionCount: sections.length,
+      generatedCount: Object.keys(sectionContents).length,
+    })
+  } catch (e) {
+    console.error("[assemble] error:", e)
+    return NextResponse.json({ error: "组装失败，请稍后重试" }, { status: 500 })
+  }
+}
