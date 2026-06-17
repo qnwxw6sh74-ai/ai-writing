@@ -14,12 +14,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 })
     }
 
-    const { originalText, editedText, articleHash } = await request.json()
-    if (!originalText || !editedText) {
+    const { originalText, editedText, articleHash, sectionIndex, outlineId, actionType } = await request.json()
+    if (!originalText && !editedText) {
       return NextResponse.json({ error: "缺少文本数据" }, { status: 400 })
     }
-    // 完全相同则跳过
-    if (originalText === editedText) {
+    // 完全相同则跳过（但 ai_generate 类型允许 original 为空）
+    if (originalText && originalText === editedText) {
       return NextResponse.json({ tracked: false, reason: "无修改" })
     }
 
@@ -50,17 +50,21 @@ export async function POST(request: NextRequest) {
     else if (changedRatio < 1.0) editScope = "paragraph"
 
     // === 写入 DB ===
+    const isSectionLevel = sectionIndex !== undefined && sectionIndex !== null
     await pool.execute(
-      `INSERT INTO user_edit_history (user_id, article_hash, original_text, edited_text, edit_type, edit_scope, diff_metadata)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO user_edit_history (user_id, article_hash, original_text, edited_text, edit_type, edit_scope, diff_metadata, section_index, outline_id, action_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         user.userId,
         articleHash || null,
-        String(originalText),
-        String(editedText),
+        String(originalText || ""),
+        String(editedText || ""),
         editType,
         editScope,
         JSON.stringify({ addedChars, deletedChars, changedRatio: Math.round(changedRatio * 100) / 100 }),
+        isSectionLevel ? sectionIndex : null,
+        isSectionLevel ? (outlineId || null) : null,
+        isSectionLevel ? (actionType || null) : null,
       ]
     )
 

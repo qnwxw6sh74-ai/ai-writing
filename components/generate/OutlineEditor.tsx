@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Loader2, Check, Edit3, ArrowRight, RefreshCw } from "lucide-react"
+import { useState, useRef, useCallback } from "react"
+import { Loader2, Check, ArrowRight, RefreshCw, ChevronRight } from "lucide-react"
 
 interface OutlineSection {
   heading: string
@@ -24,14 +24,46 @@ interface Props {
   onBack: () => void
 }
 
-type Phase = "edit" | "generating" | "done"
+type Phase = "edit" | "generating" | "reviewing" | "assembling" | "done"
+
+/**
+ * fire-and-forget 追踪上报
+ */
+function trackSectionAction(params: {
+  originalText: string
+  editedText: string
+  sectionIndex: number
+  outlineId: number
+  actionType: "ai_generate" | "confirm" | "rewrite" | "edit"
+  articleHash?: string
+}) {
+  const hash = params.articleHash || Math.abs(
+    params.originalText.split("").reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0), 0)
+  ).toString(16)
+  fetch("/api/editor/track", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      originalText: params.originalText,
+      editedText: params.editedText,
+      articleHash: hash,
+      sectionIndex: params.sectionIndex,
+      outlineId: params.outlineId,
+      actionType: params.actionType,
+    }),
+  }).catch(() => { /* fire-and-forget */ })
+}
 
 export function OutlineEditor({ outline: initialOutline, onGenerated, onError, onBack }: Props) {
   const [outline, setOutline] = useState<OutlineData>(initialOutline)
   const [phase, setPhase] = useState<Phase>("edit")
-  const [currentSection, setCurrentSection] = useState(-1)
+  const [currentSectionIdx, setCurrentSectionIdx] = useState(-1)
+  const [currentContent, setCurrentContent] = useState("") // 刚生成或编辑中的段落内容
+  const [aiOriginalContent, setAiOriginalContent] = useState("") // AI 原始生成内容（用于追踪对比）
   const [generatedSections, setGeneratedSections] = useState<Record<number, string>>({})
+  const [confirmedSections, setConfirmedSections] = useState<Set<number>>(new Set())
   const [error, setError] = useState("")
+  const generatingRef = useRef(false) // 防重复调用锁
 
   // 更新标题
   const updateTitle = (title: string) => {
@@ -46,33 +78,109 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
     }))
   }
 
-  // 逐个生成段落
-  const startGenerating = async () => {
+  // ====== 生成单个段落 ======
+  const generateSection = useCallback(async (idx: number) => {
+    if (generatingRef.current) return
+    generatingRef.current = true
     setPhase("generating")
+    setCurrentSectionIdx(idx)
     setError("")
-    const contents: Record<number, string> = {}
 
-    for (let i = 0; i < outline.sections.length; i++) {
-      setCurrentSection(i)
-      try {
-        const res = await fetch("/api/generate/section", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ outlineId: outline.outlineId, sectionIndex: i }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || "生成失败")
-        contents[i] = data.content
-        setGeneratedSections({ ...contents })
-      } catch (e: any) {
-        setError(`第${i + 1}段生成失败: ${e.message}`)
+    try {
+      const res = await fetch("/api/generate/section", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ outlineId: outline.outlineId, sectionIndex: idx }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "生成失败")
+
+      // 更新已生成内容
+      setGeneratedSections(prev => ({ ...prev, [idx]: data.content }))
+      setCurrentContent(data.content)
+      setAiOriginalContent(data.content)
+
+      // 追踪：AI 生成完成
+      trackSectionAction({
+        originalText: "",
+        editedText: data.content,
+        sectionIndex: idx,
+        outlineId: outline.outlineId,
+        actionType: "ai_generate",
+      })
+
+      setPhase("reviewing") // ← 暂停等用户操作
+    } catch (e: any) {
+      setError(`第${idx + 1}段生成失败: ${e.message}`)
+      setPhase("editing") // 回退，但实际回到 edit 或保留上次状态
+      // 如果已有生成的内容则回到 reviewing
+      if (generatedSections[idx]) {
+        setCurrentContent(generatedSections[idx])
+        setPhase("reviewing")
+      } else {
         setPhase("edit")
-        return
       }
+    } finally {
+      generatingRef.current = false
+    }
+  }, [outline.outlineId, generatedSections])
+
+  // ====== 确认当前段，继续下一段 ======
+  const confirmAndAdvance = useCallback(async () => {
+    const idx = currentSectionIdx
+
+    // 追踪：确认（可能包含用户编辑）
+    const wasEdited = currentContent !== aiOriginalContent
+    trackSectionAction({
+      originalText: wasEdited ? aiOriginalContent : "",
+      editedText: currentContent,
+      sectionIndex: idx,
+      outlineId: outline.outlineId,
+      actionType: "confirm",
+    })
+
+    // 如果用户编辑过内容，更新到 generatedSections
+    if (wasEdited) {
+      setGeneratedSections(prev => ({ ...prev, [idx]: currentContent }))
     }
 
-    // 全部生成完 → 组装
-    setCurrentSection(-1)
+    const newConfirmed = new Set(confirmedSections)
+    newConfirmed.add(idx)
+    setConfirmedSections(newConfirmed)
+
+    // 检查是否全部确认
+    const nextIdx = idx + 1
+    if (nextIdx >= outline.sections.length) {
+      // 全部确认 → 组装
+      await assembleAndFinish()
+    } else {
+      // 继续下一段
+      await generateSection(nextIdx)
+    }
+  }, [currentSectionIdx, currentContent, aiOriginalContent, confirmedSections, outline])
+
+  // ====== 重写当前段 ======
+  const rewriteSection = useCallback(async () => {
+    const idx = currentSectionIdx
+
+    // 追踪：重写（记录旧内容）
+    trackSectionAction({
+      originalText: currentContent,
+      editedText: "",
+      sectionIndex: idx,
+      outlineId: outline.outlineId,
+      actionType: "rewrite",
+    })
+
+    await generateSection(idx)
+  }, [currentSectionIdx, currentContent, outline.outlineId, generateSection])
+
+  // ====== 组装全文 ======
+  const assembleAndFinish = useCallback(async () => {
+    setPhase("assembling")
+    setCurrentSectionIdx(-1)
+    setError("")
+
     try {
       const res = await fetch("/api/generate/assemble", {
         method: "POST",
@@ -85,108 +193,189 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
       onGenerated(data.fullArticle, outline.title)
     } catch (e: any) {
       setError(`文章组装失败: ${e.message}`)
-      setPhase("edit")
+      // 回退到最后一个段落的 reviewing
+      setPhase("reviewing")
     }
-  }
+  }, [outline.outlineId, outline.title, onGenerated])
 
-  // 重新生成某一段（并重新组装全文）
-  const regenerateSection = async (idx: number) => {
-    if (currentSection >= 0) return // 防止重复点击
-    setCurrentSection(idx)
-    setError("")
-    try {
-      const res = await fetch("/api/generate/section", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outlineId: outline.outlineId, sectionIndex: idx }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "生成失败")
-      const newContents = { ...generatedSections, [idx]: data.content }
-      setGeneratedSections(newContents)
-      // 重新组装全文并通知父组件
-      const asmRes = await fetch("/api/generate/assemble", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outlineId: outline.outlineId }),
-      })
-      const asmData = await asmRes.json()
-      if (asmRes.ok && asmData.fullArticle) {
-        onGenerated(asmData.fullArticle, outline.title)
-      }
-    } catch (e: any) {
-      setError(`重新生成失败: ${e.message}`)
-    }
-    setCurrentSection(-1)
+  // ====== 开始生成（从第一段） ======
+  const startGenerating = useCallback(async () => {
+    setConfirmedSections(new Set())
+    setGeneratedSections({})
+    await generateSection(0)
+  }, [generateSection])
+
+  // ====== 编辑当前段内容 ======
+  const handleContentEdit = (text: string) => {
+    setCurrentContent(text)
   }
 
   const totalSections = outline.sections.length
   const completedSections = Object.keys(generatedSections).length
+  const confirmedCount = confirmedSections.size
 
-  if (phase === "generating" || phase === "done") {
+  // ==================== REVIEWING 阶段 UI ====================
+  if (phase === "reviewing" && currentSectionIdx >= 0) {
+    const section = outline.sections[currentSectionIdx]
+    return (
+      <div className="bg-zinc-900/50 rounded-xl border border-zinc-800 p-6 space-y-4">
+        {/* 顶部信息 */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            📝 第 {currentSectionIdx + 1}/{totalSections} 段
+          </h2>
+          <span className="text-sm text-zinc-400">
+            已确认 {confirmedCount}/{totalSections} 段
+          </span>
+        </div>
+
+        {/* 小标题 */}
+        <div className="bg-zinc-800/50 rounded-lg px-4 py-2.5">
+          <span className="text-xs text-zinc-500">段落标题</span>
+          <p className="text-sm text-zinc-200 font-medium">{section.heading}</p>
+          <div className="flex items-center gap-3 mt-1 text-xs text-zinc-500">
+            <span>预计 ~{section.estimatedWords} 字</span>
+            {section.keyPoints && <span>要点: {section.keyPoints}</span>}
+          </div>
+        </div>
+
+        {/* 内容编辑区 */}
+        <div>
+          <label className="text-xs text-zinc-500 mb-2 block">
+            段落内容（可编辑修改后确认）
+          </label>
+          <textarea
+            value={currentContent}
+            onChange={e => handleContentEdit(e.target.value)}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-sm text-zinc-200 leading-relaxed resize-y min-h-[200px] focus:ring-2 focus:ring-red-500/50 outline-none font-mono"
+            placeholder="段落内容..."
+          />
+          {currentContent !== aiOriginalContent && (
+            <p className="text-xs text-yellow-400 mt-1">✏️ 已手动编辑，确认后将保存修改版本</p>
+          )}
+        </div>
+
+        {/* 操作按钮 */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={rewriteSection}
+            disabled={generatingRef.current}
+            className="flex items-center gap-1.5 text-sm bg-zinc-700 hover:bg-zinc-600 text-zinc-300 px-4 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={16} />
+            重写本段
+          </button>
+          <button
+            type="button"
+            onClick={confirmAndAdvance}
+            disabled={generatingRef.current || !currentContent.trim()}
+            className="flex-1 flex items-center justify-center gap-1.5 text-sm bg-red-600 hover:bg-red-500 text-white font-bold px-4 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Check size={16} />
+            {currentSectionIdx + 1 >= totalSections ? "确认并组装全文" : "确认，继续下一段"}
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
+        {/* 进度条 */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs text-zinc-500">
+            <span>进度</span>
+            <span>{confirmedCount}/{totalSections} 段已确认</span>
+          </div>
+          <div className="w-full bg-zinc-800 rounded-full h-2">
+            <div
+              className="bg-red-500 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${(confirmedCount / totalSections) * 100}%` }}
+            />
+          </div>
+          {/* 段落指示器 */}
+          <div className="flex gap-1 mt-1">
+            {outline.sections.map((s, i) => {
+              let bg = "bg-zinc-700"
+              if (confirmedSections.has(i)) bg = "bg-green-600"
+              else if (i === currentSectionIdx) bg = "bg-red-500 animate-pulse"
+              else if (generatedSections[i]) bg = "bg-yellow-600"
+              return (
+                <div
+                  key={i}
+                  className={`flex-1 h-1.5 rounded-full ${bg} transition-colors`}
+                  title={`${s.heading}${confirmedSections.has(i) ? " ✓" : generatedSections[i] ? " (待确认)" : ""}`}
+                />
+              )
+            })}
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-950/30 border border-red-900/30 rounded-lg p-3 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ==================== GENERATING 阶段 UI ====================
+  if (phase === "generating" && currentSectionIdx >= 0) {
+    const section = outline.sections[currentSectionIdx]
+    return (
+      <div className="bg-zinc-900/50 rounded-xl border border-zinc-800 p-12 text-center space-y-4">
+        <Loader2 size={36} className="text-red-400 animate-spin mx-auto" />
+        <div>
+          <p className="text-zinc-200 font-medium">
+            正在生成第 {currentSectionIdx + 1}/{totalSections} 段
+          </p>
+          <p className="text-zinc-500 text-sm mt-1">「{section.heading}」</p>
+        </div>
+        <div className="w-full max-w-xs mx-auto bg-zinc-800 rounded-full h-2">
+          <div className="bg-red-500 h-2 rounded-full animate-pulse" style={{ width: "60%" }} />
+        </div>
+        <p className="text-xs text-zinc-600">AI 正在创作中，请稍候...</p>
+      </div>
+    )
+  }
+
+  // ==================== ASSEMBLING 阶段 UI ====================
+  if (phase === "assembling") {
+    return (
+      <div className="bg-zinc-900/50 rounded-xl border border-zinc-800 p-12 text-center space-y-4">
+        <Loader2 size={36} className="text-green-400 animate-spin mx-auto" />
+        <p className="text-zinc-200 font-medium">正在组装全文...</p>
+        <p className="text-zinc-500 text-sm">
+          {confirmedCount}/{totalSections} 段已确认，正在拼接为完整文章
+        </p>
+      </div>
+    )
+  }
+
+  // ==================== DONE 阶段 UI ====================
+  if (phase === "done") {
     return (
       <div className="bg-zinc-900/50 rounded-xl border border-zinc-800 p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-white">📝 {outline.title}</h2>
-          {phase === "generating" && (
-            <span className="text-sm text-zinc-400">
-              正在生成 {completedSections + 1}/{totalSections} 段
-            </span>
-          )}
-          {phase === "done" && (
-            <span className="text-sm text-green-400 flex items-center gap-1">
-              <Check size={16} /> 全部生成完成
-            </span>
-          )}
+          <span className="text-sm text-green-400 flex items-center gap-1">
+            <Check size={16} /> 全部生成完成
+          </span>
         </div>
 
-        {/* 进度条 */}
-        {phase === "generating" && (
-          <div className="w-full bg-zinc-800 rounded-full h-2">
-            <div
-              className="bg-red-500 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${(completedSections / totalSections) * 100}%` }}
-            />
-          </div>
-        )}
-
-        {/* 段落列表 */}
         <div className="space-y-2">
           {outline.sections.map((s, i) => {
-            const isCurrent = i === currentSection
             const content = generatedSections[i]
+            const isConfirmed = confirmedSections.has(i)
             return (
               <div
                 key={i}
-                className={`rounded-lg p-3 border transition-colors ${
-                  content
-                    ? "bg-zinc-800/50 border-green-900/30"
-                    : isCurrent
-                    ? "bg-red-950/20 border-red-900/50 animate-pulse"
-                    : "bg-zinc-800/30 border-zinc-700/50"
-                }`}
+                className={`rounded-lg p-3 border ${isConfirmed ? "bg-zinc-800/50 border-green-900/30" : "bg-zinc-800/30 border-zinc-700/50"}`}
               >
                 <div className="flex items-center gap-2">
-                  {content ? (
-                    <Check size={16} className="text-green-500 shrink-0" />
-                  ) : isCurrent ? (
-                    <Loader2 size={16} className="text-red-400 animate-spin shrink-0" />
-                  ) : (
-                    <span className="text-xs text-zinc-600 w-4 shrink-0">{i + 1}</span>
-                  )}
-                  <span className={`text-sm ${content ? "text-zinc-300" : isCurrent ? "text-red-300" : "text-zinc-500"}`}>
+                  <Check size={16} className={isConfirmed ? "text-green-500" : "text-zinc-600"} />
+                  <span className={`text-sm ${isConfirmed ? "text-zinc-300" : "text-zinc-500"}`}>
                     {s.heading}
                   </span>
                   <span className="text-xs text-zinc-600">(~{s.estimatedWords}字)</span>
-                  {content && phase === "done" && (
-                    <button
-                      type="button"
-                      onClick={() => regenerateSection(i)}
-                      className="ml-auto text-xs text-zinc-500 hover:text-red-400 flex items-center gap-1"
-                    >
-                      <RefreshCw size={12} /> 重写
-                    </button>
-                  )}
                 </div>
                 {content && (
                   <p className="text-xs text-zinc-400 mt-2 line-clamp-2">{content.slice(0, 200)}...</p>
@@ -195,27 +384,11 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
             )
           })}
         </div>
-
-        {error && (
-          <div className="bg-red-950/30 border border-red-900/30 rounded-lg p-3 text-sm text-red-400">
-            {error}
-          </div>
-        )}
-
-        {phase === "edit" && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-full bg-zinc-700 text-white py-2.5 rounded-lg hover:bg-zinc-600 transition-colors"
-          >
-            ← 返回修改
-          </button>
-        )}
       </div>
     )
   }
 
-  // 编辑模式
+  // ==================== EDIT 阶段（默认） ====================
   return (
     <div className="bg-zinc-900/50 rounded-xl border border-zinc-800 p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -272,7 +445,7 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
       </button>
 
       <p className="text-center text-xs text-zinc-600">
-        确认后将按大纲逐段生成文章，共 {outline.sections.length} 段，每段独立 AI 调用确保质量
+        确认后将按大纲逐段生成文章，共 {outline.sections.length} 段。每段生成后可审核、编辑或重写。
       </p>
     </div>
   )
