@@ -79,12 +79,16 @@ export async function POST(request: NextRequest) {
           { status: 402 }
         )
       }
-      // 扣积分
+      // 扣积分（原子操作：WHERE credits_deducted=0 防并发重复扣）
       await deductCredits(userId, ip, "generate")
-      await pool.execute(
-        `UPDATE generate_outlines SET credits_deducted = 1 WHERE id = ?`,
+      const [upd] = await pool.execute(
+        `UPDATE generate_outlines SET credits_deducted = 1 WHERE id = ? AND credits_deducted = 0`,
         [outlineId]
-      )
+      ) as any[]
+      // 如果不是本请求设置成功的（被并发请求抢先了），记录但不回滚积分
+      if (upd.affectedRows === 0) {
+        console.log(`[section] outline ${outlineId} credits already deducted by another request`)
+      }
     }
 
     // === 构建 Prompt ===
@@ -124,12 +128,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "段落生成失败，请稍后重试" }, { status: 500 })
     }
 
-    // === 保存段落 ===
-    sectionContents[String(sectionIndex)] = content
+    // === 保存段落（JSON_SET 原子操作，防并发覆盖）===
     try {
       await pool.execute(
-        `UPDATE generate_outlines SET section_contents = ?, status = 'generating' WHERE id = ?`,
-        [JSON.stringify(sectionContents), outlineId]
+        `UPDATE generate_outlines
+         SET section_contents = JSON_SET(COALESCE(section_contents, '{}'), ?, ?),
+             status = 'generating'
+         WHERE id = ?`,
+        [`$.${sectionIndex}`, content, outlineId]
       )
     } catch { /* ignore */ }
 

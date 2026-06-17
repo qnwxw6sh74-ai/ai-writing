@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       editType = "rewrite" // 微小修改
     } else if (editedLen > originalLen * 1.5) {
       editType = "insert"
-    } else if (editedLen < originalLen * 0.5) {
+    } else if (editedLen <= originalLen * 0.5) {
       editType = "delete"
     } else {
       editType = "rewrite"

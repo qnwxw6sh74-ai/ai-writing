@@ -96,6 +96,7 @@ function GenerateContent() {
       const data = await res.json()
       if (!res.ok) {
         setErrorMsg(data.error || "大纲生成失败")
+        setPhase("input")
         setIsLoading(false)
         return
       }
@@ -256,7 +257,7 @@ function GenerateContent() {
               </button>
               <button
                 type="button"
-                onClick={() => setOutlineMode(true)}
+                onClick={() => { setOutlineMode(true); setPhase("input"); setContent(""); setContentB(""); setOutline(null) }}
                 className={`px-3 py-1 text-xs rounded-full transition-colors ${outlineMode ? "bg-red-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"}`}
               >
                 📋 大纲精生成

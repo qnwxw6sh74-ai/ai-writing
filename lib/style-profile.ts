@@ -195,7 +195,9 @@ export async function saveStyleProfile(
       userId: row.user_id,
       profile: parsedProfile,
       sourceArticleCount: row.source_article_count || 0,
-      sourceArticlePreviews: row.source_article_previews ? JSON.parse(row.source_article_previews) : null,
+      sourceArticlePreviews: row.source_article_previews
+        ? (typeof row.source_article_previews === "string" ? JSON.parse(row.source_article_previews) : row.source_article_previews)
+        : null,
       version: row.version || 1,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -259,16 +261,16 @@ export async function migrateFromSiteConfig(userId: number): Promise<StyleProfil
       return null
     }
 
-    // 映射旧 6 维到新 9 维
+    // 映射旧 6 维到新 9 维（保留所有能对应的字段）
     const profile: StyleProfile = {
       avgSentenceLength: oldProfile.sentenceStyle || oldProfile.avgSentenceLength || "",
       sentencePatterns: oldProfile.rhetoric || oldProfile.sentencePatterns || "",
       vocabularyPrefs: oldProfile.vocabulary || oldProfile.vocabularyPrefs || "",
-      openingStyle: "",
+      openingStyle: oldProfile.paragraphStructure || oldProfile.openingStyle || "",
       endingStyle: "",
       punctuationEmojiHabits: "",
       emotionalTemperature: oldProfile.tone || oldProfile.emotionalTemperature || "",
-      personUsage: "",
+      personUsage: oldProfile.rhythm || oldProfile.personUsage || "",
       readerRelationship: "",
     }
 

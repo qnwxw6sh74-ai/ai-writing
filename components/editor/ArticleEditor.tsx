@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Pencil, Check } from "lucide-react"
 
 interface Props {
@@ -36,14 +36,22 @@ async function trackEdit(originalText: string, editedText: string) {
 export function ArticleEditor({ content, onContentChange }: Props) {
   const [isEditing, setIsEditing] = useState(false)
   const [text, setText] = useState(content)
+  const contentRef = useRef(content)
+
+  // 外部 content 变化时同步 text 状态（非编辑中时）
+  useEffect(() => {
+    if (content !== contentRef.current && !isEditing) {
+      setText(content)
+    }
+    contentRef.current = content
+  }, [content, isEditing])
 
   const handleSave = useCallback(() => {
-    onContentChange?.(text)
-    setIsEditing(false)
-    // 有实质修改才上报
     if (text !== content) {
+      onContentChange?.(text)
       trackEdit(content, text)
     }
+    setIsEditing(false)
   }, [text, content, onContentChange])
 
   const handleCancel = useCallback(() => {

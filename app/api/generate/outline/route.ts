@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       const [insertResult] = await pool.execute(
         `INSERT INTO generate_outlines (user_id, keyword, domain, style, word_count, title, sections, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'draft')`,
-        [uid || 0, keyword.trim(), domain || "", style || "", wordCount || 1500, title, JSON.stringify(sections)]
+        [user?.userId || 0, keyword.trim(), domain || "", style || "", wordCount || 1500, title, JSON.stringify(sections)]
       ) as any[]
       outlineId = insertResult.insertId
     } catch (e) {

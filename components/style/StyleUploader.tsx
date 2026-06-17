@@ -132,11 +132,16 @@ export function StyleUploader() {
   // 清除风格
   const handleClear = async () => {
     if (!confirm("确定要清除风格档案吗？")) return
-    await fetch("/api/style/profile", { method: "DELETE" })
-    setProfile(null)
-    setMemes([])
-    setHasExisting(false)
-    setArticles([])
+    try {
+      const res = await fetch("/api/style/profile", { method: "DELETE" })
+      if (!res.ok) throw new Error("删除失败")
+      setProfile(null)
+      setMemes([])
+      setHasExisting(false)
+      setArticles([])
+    } catch {
+      setError("清除失败，请稍后重试")
+    }
   }
 
   return (

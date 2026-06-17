@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS user_style_memes (
     style_profile_id INT NOT NULL COMMENT '关联 user_styles.id',
     phrase VARCHAR(200) NOT NULL COMMENT '标志性短句原文',
     context_preview VARCHAR(500) COMMENT '短句上下文(前后各100字)',
+    typical_usage VARCHAR(300) COMMENT '通常在什么语境下使用',
     sort_rank INT DEFAULT 0 COMMENT '排序(越靠前越标志性)',
     usage_count INT DEFAULT 0 COMMENT '已使用次数(均衡调度)',
     is_active TINYINT(1) DEFAULT 1,

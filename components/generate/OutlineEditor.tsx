@@ -89,8 +89,9 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
     }
   }
 
-  // 重新生成某一段
+  // 重新生成某一段（并重新组装全文）
   const regenerateSection = async (idx: number) => {
+    if (currentSection >= 0) return // 防止重复点击
     setCurrentSection(idx)
     setError("")
     try {
@@ -103,6 +104,16 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
       if (!res.ok) throw new Error(data.error || "生成失败")
       const newContents = { ...generatedSections, [idx]: data.content }
       setGeneratedSections(newContents)
+      // 重新组装全文并通知父组件
+      const asmRes = await fetch("/api/generate/assemble", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ outlineId: outline.outlineId }),
+      })
+      const asmData = await asmRes.json()
+      if (asmRes.ok && asmData.fullArticle) {
+        onGenerated(asmData.fullArticle, outline.title)
+      }
     } catch (e: any) {
       setError(`重新生成失败: ${e.message}`)
     }
