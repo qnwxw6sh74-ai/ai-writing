@@ -8,6 +8,7 @@
  */
 
 import { generateImage, type GenerateImageResult } from "./image-gen"
+import { deductCredits } from "./credits"
 
 interface ImageJob {
   id: string
@@ -15,6 +16,9 @@ interface ImageJob {
   imageUrl?: string
   error?: string
   createdAt: number
+  /** 扣费用：userId 和 ip，成功后才扣 */
+  userId: string
+  ip: string
 }
 
 // 内存存储（重启丢失，可接受）
@@ -30,20 +34,32 @@ setInterval(() => {
   }
 }, 300_000)
 
-/** 创建异步任务，返回任务 ID */
-export function createImageJob(prompt: string, size: string): string {
+/** 创建异步任务，返回任务 ID。生成成功才扣积分，失败不扣。 */
+export function createImageJob(prompt: string, size: string, userId: string, ip: string): string {
   const id = randomJobId()
-  const job: ImageJob = { id, status: "pending", createdAt: Date.now() }
+  const job: ImageJob = { id, status: "pending", createdAt: Date.now(), userId, ip }
   jobs.set(id, job)
 
   // 后台执行（不 await）
   generateImage({ prompt, size })
-    .then((result) => {
+    .then(async (result) => {
       const j = jobs.get(id)
-      if (j) {
-        j.status = result.success ? "done" : "error"
+      if (!j) return
+      if (result.success) {
+        // 生成成功 → 扣积分
+        j.status = "done"
         j.imageUrl = result.imageUrl
+        try {
+          await deductCredits(j.userId, j.ip, "image_generate")
+          console.log(`[image-jobs] ${id} 成功，已扣积分 (user=${j.userId})`)
+        } catch (e) {
+          console.error(`[image-jobs] ${id} 扣积分失败:`, e)
+        }
+      } else {
+        // 生成失败 → 不扣积分
+        j.status = "error"
         j.error = result.error
+        console.log(`[image-jobs] ${id} 生成失败，未扣积分`)
       }
     })
     .catch((e) => {
@@ -51,6 +67,7 @@ export function createImageJob(prompt: string, size: string): string {
       if (j) {
         j.status = "error"
         j.error = `生成异常: ${String(e).slice(0, 200)}`
+        console.log(`[image-jobs] ${id} 异常，未扣积分`)
       }
     })
 

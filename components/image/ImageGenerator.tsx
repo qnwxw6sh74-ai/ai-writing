@@ -28,12 +28,18 @@ export function ImageGenerator() {
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [credits, setCredits] = useState<CreditsInfo | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   // 组件卸载时清理 timer
   const [timerId, setTimerId] = useState(0)
   useEffect(() => {
     return () => { if (timerId) window.clearTimeout(timerId) }
   }, [timerId])
+
+  // 检测登录状态
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => setIsLoggedIn(r.ok)).catch(() => {})
+  }, [])
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -63,8 +69,15 @@ export function ImageGenerator() {
         return
       }
 
-      if (data.credits) {
+      // 从 API 响应同步登录状态
+      if (data.isLoggedIn !== undefined) {
+        setIsLoggedIn(data.isLoggedIn)
+      }
+      // 仅登录用户显示积分信息
+      if (data.isLoggedIn && data.credits) {
         setCredits({ remaining: data.credits.remaining, used: data.credits.used })
+      } else {
+        setCredits(null)
       }
 
       // 2. 轮询状态（用 setTimeout 递归，比 setInterval 更可靠）
@@ -186,7 +199,7 @@ export function ImageGenerator() {
           )}
         </button>
 
-        {credits && (
+        {isLoggedIn && credits && (
           <p className="text-center text-xs text-zinc-500">
             本次生成消耗 1 积分 · 剩余 {credits.remaining} 积分
           </p>
@@ -196,7 +209,14 @@ export function ImageGenerator() {
       {error && (
         <div className="mt-4 bg-red-900/20 border border-red-800 rounded-lg p-4 flex items-start gap-3">
           <AlertCircle size={18} className="text-red-400 mt-0.5 shrink-0" />
-          <p className="text-red-300 text-sm">{error}</p>
+          <div>
+            <p className="text-red-300 text-sm">{error}</p>
+            {error.includes("请登录") && (
+              <a href="/login?redirect=/image-generator" className="inline-block mt-2 text-sm text-red-400 underline hover:text-red-300">
+                去登录 →
+              </a>
+            )}
+          </div>
         </div>
       )}
 

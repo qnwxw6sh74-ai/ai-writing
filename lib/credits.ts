@@ -38,6 +38,8 @@ export function resolveUserId(
 export interface CreditsResult {
   /** 是否允许继续生成 */
   allowed: boolean
+  /** 当前用户是否已登录 */
+  isLoggedIn: boolean
   /** 付费功能是否启用 */
   paymentEnabled: boolean
   /** 免费次数（固定值） */
@@ -82,7 +84,7 @@ export async function checkCredits(userId: string, ip: string): Promise<CreditsR
   try {
     const paymentEnabled = await getPaymentEnabled()
     if (!paymentEnabled) {
-      return { allowed: true, paymentEnabled: false, total: Infinity, freeUsed: 0, freeRemaining: Infinity, purchasedUsed: 0, purchasedRemaining: Infinity, used: 0, remaining: Infinity, purchasedCredits: 0 }
+      return { allowed: true, isLoggedIn: false, paymentEnabled: false, total: Infinity, freeUsed: 0, freeRemaining: Infinity, purchasedUsed: 0, purchasedRemaining: Infinity, used: 0, remaining: Infinity, purchasedCredits: 0 }
     }
 
     const freeCredits = await getFreeCredits()
@@ -116,6 +118,7 @@ export async function checkCredits(userId: string, ip: string): Promise<CreditsR
 
     return {
       allowed: totalRemaining > 0,
+      isLoggedIn,
       paymentEnabled: true,
       total: freeCredits,
       freeUsed,
@@ -127,7 +130,8 @@ export async function checkCredits(userId: string, ip: string): Promise<CreditsR
       purchasedCredits,
     }
   } catch {
-    return { allowed: true, paymentEnabled: false, total: Infinity, freeUsed: 0, freeRemaining: Infinity, purchasedUsed: 0, purchasedRemaining: Infinity, used: 0, remaining: Infinity, purchasedCredits: 0 }
+    // DB 异常时保守处理：不允许生成，避免绕过额度检查
+    return { allowed: false, isLoggedIn: false, paymentEnabled: false, total: 0, freeUsed: 0, freeRemaining: 0, purchasedUsed: 0, purchasedRemaining: 0, used: 0, remaining: 0, purchasedCredits: 0 }
   }
 }
 
@@ -165,6 +169,7 @@ export async function deductCredits(
     // 返回更新后状态
     return checkCredits(userId, ip)
   } catch {
-    return { allowed: true, paymentEnabled: false, total: Infinity, freeUsed: 0, freeRemaining: Infinity, purchasedUsed: 0, purchasedRemaining: Infinity, used: 0, remaining: Infinity, purchasedCredits: 0 }
+    // DB 异常时保守处理：扣费失败不生成，避免绕过额度检查
+    return { allowed: false, isLoggedIn: false, paymentEnabled: false, total: 0, freeUsed: 0, freeRemaining: 0, purchasedUsed: 0, purchasedRemaining: 0, used: 0, remaining: 0, purchasedCredits: 0 }
   }
 }

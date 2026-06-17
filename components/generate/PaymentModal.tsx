@@ -23,12 +23,15 @@ export function PaymentModal({ open, onClose, onPaid }: Props) {
   const [paying, setPaying] = useState<number | null>(null) // 正在支付的 plan id
   const [polling, setPolling] = useState(false)
   const [result, setResult] = useState<{ paid?: boolean; message?: string; creditsAdded?: number } | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     if (open) {
       setLoading(true)
       setResult(null)
+      // 检测登录状态
+      fetch("/api/auth/me").then(r => setIsLoggedIn(r.ok)).catch(() => setIsLoggedIn(false))
       fetch("/api/plans")
         .then(r => r.json())
         .then(d => setPlans(d.plans || []))
@@ -40,6 +43,13 @@ export function PaymentModal({ open, onClose, onPaid }: Props) {
 
   const handlePay = async (plan: Plan) => {
     console.log("[PaymentModal] handlePay 触发:", { id: plan.id, name: plan.name, price: plan.price, is_trial: plan.is_trial })
+
+    // 未登录不允许付款
+    if (!isLoggedIn) {
+      setResult({ message: "请登录后付款" })
+      return
+    }
+
     setPaying(plan.id)
     setResult(null)
 
@@ -134,7 +144,14 @@ export function PaymentModal({ open, onClose, onPaid }: Props) {
             {result.paid ? (
               <><Check size={16} className="inline mr-1" />{result.message}</>
             ) : (
-              result.message
+              <div>
+                <p>{result.message}</p>
+                {result.message === "请登录后付款" && (
+                  <a href="/login?redirect=/pricing" className="inline-block mt-2 text-sm text-red-400 underline hover:text-red-300">
+                    去登录 →
+                  </a>
+                )}
+              </div>
             )}
           </div>
         )}

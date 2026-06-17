@@ -26,7 +26,13 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
   const [isPaying, setIsPaying] = useState(false)
   const [isPolling, setIsPolling] = useState(false)
   const [pollTimedOut, setPollTimedOut] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // 检测登录状态
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => setIsLoggedIn(r.ok)).catch(() => setIsLoggedIn(false))
+  }, [])
 
   // 支付回跳检测
   useEffect(() => {
@@ -83,6 +89,13 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
 
   const handlePay = async (plan: PricingPlan, type: 1 | 2) => {
     console.log("[PricingClient] handlePay 触发:", { id: plan.id, name: plan.name, price: plan.price })
+
+    // 未登录不允许付款
+    if (!isLoggedIn) {
+      setOrderResult({ message: "请登录后付款" })
+      return
+    }
+
     setIsPaying(true)
     setSelectedPlan(plan)
     setPayType(type)
@@ -241,7 +254,14 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
               </>
             )}
             {!orderResult.orderId && !orderResult.paid && (
-              <p>{orderResult.error || orderResult.message || "支付失败"}</p>
+              <div>
+                <p>{orderResult.error || orderResult.message || "支付失败"}</p>
+                {(orderResult.message || "").includes("请登录") && (
+                  <a href="/login?redirect=/pricing" className="inline-block mt-2 text-sm text-red-400 underline hover:text-red-300">
+                    去登录 →
+                  </a>
+                )}
+              </div>
             )}
           </div>
         )}
