@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { chatCompletion } from "@/lib/ai-client"
 import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
-import { getStyleProfile } from "@/lib/style-profile"
-import { getMemesForUser, selectRandomMemes, buildMemePrompt, recordMemeUsage } from "@/lib/style-meme"
-import { buildForbiddenPrompt } from "@/lib/forbidden-phrases"
+import { augmentSystemPrompt } from "@/lib/style-prompt-builder"
+import { recordMemeUsage } from "@/lib/style-meme"
 import { getUserFromRequest } from "@/lib/auth-user"
 import pool from "@/lib/db"
 
@@ -100,33 +99,10 @@ export async function POST(request: NextRequest) {
       }
     } catch { /* fallback */ }
 
-    // 风格 + 禁语 + 模因
-    let usedMemeIds: number[] = []
-    try {
-      const styleProfile = await getStyleProfile(user.userId)
-      if (styleProfile) {
-        const styleDesc = Object.entries(styleProfile.profile)
-          .filter(([, v]) => v && String(v).trim())
-          .map(([k, v]) => `【${k}】${v}`)
-          .join("\n")
-        if (styleDesc) systemPrompt = `${systemPrompt}\n\n【用户风格参数】\n${styleDesc}`
-
-        const allMemes = await getMemesForUser(user.userId)
-        if (allMemes.length > 0) {
-          const selected = selectRandomMemes(allMemes, 1) // 每段只选1个
-          const memePrompt = buildMemePrompt(selected)
-          if (memePrompt) {
-            systemPrompt = `${systemPrompt}\n\n${memePrompt}`
-            usedMemeIds = selected.map(m => m.id)
-          }
-        }
-      }
-    } catch { /* ignore */ }
-
-    try {
-      const forbiddenPrompt = await buildForbiddenPrompt()
-      if (forbiddenPrompt) systemPrompt = `${systemPrompt}\n\n${forbiddenPrompt}`
-    } catch { /* ignore */ }
+    // 风格 + 禁语 + 模因（每段仅选1个 meme）
+    const augmented = await augmentSystemPrompt(systemPrompt, user.userId, 1)
+    systemPrompt = augmented.systemPrompt
+    const usedMemeIds = augmented.usedMemeIds
 
     // 上下文：大纲 + 前一段内容
     const outlineContext = `【文章标题】${outline.title}\n【全文大纲】\n${sections.map((s: any, i: number) => `${i === sectionIndex ? '>>> ' : ''}${i + 1}. ${s.heading}（约${s.estimatedWords}字）${s.keyPoints ? `— ${s.keyPoints}` : ''}${i === sectionIndex ? ' <<<' : ''}`).join("\n")}`

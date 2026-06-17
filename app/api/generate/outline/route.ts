@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { chatCompletion } from "@/lib/ai-client"
 import { checkCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
-import { getStyleProfile } from "@/lib/style-profile"
-import { getMemesForUser, selectRandomMemes, buildMemePrompt } from "@/lib/style-meme"
-import { buildForbiddenPrompt } from "@/lib/forbidden-phrases"
+import { augmentSystemPrompt } from "@/lib/style-prompt-builder"
 import { getUserFromRequest } from "@/lib/auth-user"
 import pool from "@/lib/db"
 
@@ -60,26 +58,8 @@ export async function POST(request: NextRequest) {
     } catch { /* fallback */ }
 
     // === 加载风格 + 禁语 ===
-    const uid = user?.userId
-    if (uid) {
-      try {
-        const styleProfile = await getStyleProfile(uid)
-        if (styleProfile) {
-          const styleDesc = Object.entries(styleProfile.profile)
-            .filter(([, v]) => v && String(v).trim())
-            .map(([k, v]) => `【${k}】${v}`)
-            .join("\n")
-          if (styleDesc) {
-            systemPrompt = `${systemPrompt}\n\n【用户风格参数】\n${styleDesc}`
-          }
-        }
-      } catch { /* ignore */ }
-    }
-
-    try {
-      const forbiddenPrompt = await buildForbiddenPrompt()
-      if (forbiddenPrompt) systemPrompt = `${systemPrompt}\n\n${forbiddenPrompt}`
-    } catch { /* ignore */ }
+    const augmented = await augmentSystemPrompt(systemPrompt, user?.userId ?? 0, 0)
+    systemPrompt = augmented.systemPrompt
 
     // === 构建用户 Prompt ===
     const userPrompt = userPromptTemplate

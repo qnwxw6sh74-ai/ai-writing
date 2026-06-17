@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateMockArticle } from "@/lib/mock-ai"
 import { generateArticle } from "@/lib/ai-client"
-import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
+import { checkCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
 import { checkGenerateCooldown, recordGenerate, checkIPAutoDeduct } from "@/lib/rate-limit"
 import { getCached, setCached } from "@/lib/generate-cache"
-import { getStyleProfile } from "@/lib/style-profile"
-import { getMemesForUser, selectRandomMemes, buildMemePrompt, recordMemeUsage } from "@/lib/style-meme"
-import { buildForbiddenPrompt } from "@/lib/forbidden-phrases"
+import { augmentSystemPrompt } from "@/lib/style-prompt-builder"
+import { recordMemeUsage } from "@/lib/style-meme"
 import pool from "@/lib/db"
 
 export async function POST(request: NextRequest) {
@@ -79,48 +78,19 @@ export async function POST(request: NextRequest) {
       }
     } catch { /* DB 不可用，用默认 prompt */ }
 
-    // === 加载用户风格档案（新表 user_styles） ===
-    let usedMemeIds: number[] = []
-    const uid = /^\d+$/.test(userId) ? parseInt(userId) : 0
-    if (uid > 0) {
-      try {
-        const styleProfile = await getStyleProfile(uid)
-        if (styleProfile) {
-          // 风格参数表（9 维度以结构化方式注入）
-          const styleDesc = Object.entries(styleProfile.profile)
-            .filter(([, v]) => v && String(v).trim())
-            .map(([k, v]) => `【${k}】${v}`)
-            .join("\n")
-          if (styleDesc) {
-            systemPrompt = `${systemPrompt}\n\n【用户风格参数 — 请严格按以下风格特征写作】\n${styleDesc}`
-          }
-
-          // 风格模因注入
-          const allMemes = await getMemesForUser(uid)
-          if (allMemes.length > 0) {
-            const selectedMemes = selectRandomMemes(allMemes, 2)
-            const memePrompt = buildMemePrompt(selectedMemes)
-            if (memePrompt) {
-              systemPrompt = `${systemPrompt}\n\n${memePrompt}`
-              usedMemeIds = selectedMemes.map(m => m.id)
-            }
-          }
-        }
-      } catch { /* 风格加载失败不影响生成 */ }
-    }
-
-    // === AI 禁语库注入 ===
-    try {
-      const forbiddenPrompt = await buildForbiddenPrompt()
-      if (forbiddenPrompt) {
-        systemPrompt = `${systemPrompt}\n\n${forbiddenPrompt}`
-      }
-    } catch { /* 禁语加载失败不影响生成 */ }
-
-    // === 缓存查询 ===
+    // === 缓存查询（在风格/禁语加载之前，避免浪费 DB 查询）===
     if (!mockMode) {
       content = getCached(keyword, domain || "", style || "")
       if (content) fromCache = true
+    }
+
+    // === 加载用户风格档案 + 禁语 + 模因（仅缓存未命中时）===
+    let usedMemeIds: number[] = []
+    if (!fromCache && !mockMode) {
+      const uid = /^\d+$/.test(userId) ? parseInt(userId) : 0
+      const augmented = await augmentSystemPrompt(systemPrompt, uid, 2)
+      systemPrompt = augmented.systemPrompt
+      usedMemeIds = augmented.usedMemeIds
     }
 
     // === 真实 AI 模式 ===

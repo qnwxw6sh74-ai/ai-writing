@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS user_styles (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_user_id (user_id),
-    UNIQUE KEY uk_user_active (user_id, is_active)
+    INDEX idx_user_active (user_id, is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 2. 用户风格模因库（标志性短句 TOP 5）

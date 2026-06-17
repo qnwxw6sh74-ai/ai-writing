@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { chatCompletion } from "@/lib/ai-client"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
-import { resolveUserId } from "@/lib/credits"
 import { saveStyleProfile } from "@/lib/style-profile"
 import { getUserFromRequest } from "@/lib/auth-user"
 import pool from "@/lib/db"
@@ -39,7 +38,11 @@ export async function POST(request: NextRequest) {
         systemPrompt = rows[0].system_prompt || ""
         userPromptTemplate = rows[0].user_prompt_template || ""
       }
-    } catch { /* fallback to hardcoded prompt below */ }
+    } catch {
+      // DB 不可用时使用硬编码 fallback
+      systemPrompt = `你是一位专业的写作风格分析师。请分析以下文章样本，从 9 个维度总结作者的写作风格特征，每个维度引用原文例句。输出 JSON 格式：{"avgSentenceLength":"...","sentencePatterns":"...","vocabularyPrefs":"...","openingStyle":"...","endingStyle":"...","punctuationEmojiHabits":"...","emotionalTemperature":"...","personUsage":"...","readerRelationship":"...","signaturePhrases":[{"phrase":"...","context":"...","typicalUsage":"..."}]}`
+      userPromptTemplate = ""
+    }
 
     // 构建用户消息
     const userMessage = userPromptTemplate
