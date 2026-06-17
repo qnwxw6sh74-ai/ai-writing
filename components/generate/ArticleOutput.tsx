@@ -6,6 +6,7 @@ import { ArticleEditor } from "@/components/editor/ArticleEditor"
 import { ExportMenu } from "@/components/editor/ExportMenu"
 import { RewriteToolbar } from "@/components/editor/RewriteToolbar"
 import { StylePreviewOverlay } from "@/components/editor/StylePreviewOverlay"
+import type { RichTextEditorHandle } from "@/components/editor/RichTextEditor"
 import { getUserErrorMessage } from "@/lib/fetch-utils"
 
 /** 简单字符串哈希（Java String.hashCode 算法） */
@@ -36,6 +37,7 @@ interface Props {
 
 export function ArticleOutput({ content, contentB, title, credits, onCreditsChange, onConfirm }: Props) {
   const editorRef = useRef<HTMLDivElement>(null)
+  const tipTapRef = useRef<RichTextEditorHandle | null>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [confirmError, setConfirmError] = useState("")
@@ -89,7 +91,12 @@ export function ArticleOutput({ content, contentB, title, credits, onCreditsChan
   }
 
   const handleReplace = useCallback((_oldText: string, newText: string) => {
-    // 在编辑器中替换选中文本
+    // 优先使用 TipTap 的 insertContent（兼容 ProseMirror 文档模型）
+    if (tipTapRef.current) {
+      tipTapRef.current.replaceSelection(newText)
+      return
+    }
+    // 回退：直接 DOM 操作（兼容非 TipTap 编辑器）
     const sel = window.getSelection()
     if (sel && sel.rangeCount > 0) {
       const range = sel.getRangeAt(0)
@@ -199,7 +206,7 @@ export function ArticleOutput({ content, contentB, title, credits, onCreditsChan
         </div>
       )}
       <div ref={editorRef} className="relative">
-        <ArticleEditor key={activeTab} content={currentContent} />
+        <ArticleEditor key={activeTab} content={currentContent} onEditorReady={(h) => { tipTapRef.current = h }} />
         <RewriteToolbar
           containerRef={editorRef}
           articleHash={activeHash}

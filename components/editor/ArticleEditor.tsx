@@ -7,6 +7,7 @@ import { RichTextEditor, type RichTextEditorHandle } from "@/components/editor/R
 interface Props {
   content: string
   onContentChange?: (html: string) => void
+  onEditorReady?: (handle: RichTextEditorHandle) => void
 }
 
 /** 简单字符串哈希 */
@@ -34,16 +35,21 @@ async function trackEdit(originalText: string, editedText: string) {
   } catch { /* 追踪失败不影响编辑保存 */ }
 }
 
-export function ArticleEditor({ content, onContentChange }: Props) {
+export function ArticleEditor({ content, onContentChange, onEditorReady }: Props) {
   const [isEditing, setIsEditing] = useState(false)
   const contentRef = useRef(content)
   const editorRef = useRef<RichTextEditorHandle>(null)
-  const textRef = useRef(content) // 当前编辑中的纯文本（追踪用）
+
+  // 通知父组件 editor handle 就绪（供 RewriteToolbar 使用）
+  useEffect(() => {
+    if (editorRef.current) {
+      onEditorReady?.(editorRef.current)
+    }
+  }, [onEditorReady])
 
   // 外部 content 变化时同步（非编辑中时）
   useEffect(() => {
     if (content !== contentRef.current && !isEditing) {
-      textRef.current = content
       editorRef.current?.setContent(content)
     }
     contentRef.current = content
@@ -60,7 +66,6 @@ export function ArticleEditor({ content, onContentChange }: Props) {
 
   const handleCancel = useCallback(() => {
     editorRef.current?.setContent(content)
-    textRef.current = content
     setIsEditing(false)
   }, [content])
 
@@ -74,7 +79,6 @@ export function ArticleEditor({ content, onContentChange }: Props) {
             <button
               type="button"
               onClick={() => {
-                textRef.current = content
                 editorRef.current?.setContent(content)
                 setIsEditing(true)
               }}
@@ -113,10 +117,6 @@ export function ArticleEditor({ content, onContentChange }: Props) {
       <RichTextEditor
         ref={editorRef}
         content={content}
-        onChange={(html) => {
-          // 仅更新追踪用纯文本引用
-          textRef.current = html
-        }}
       />
     </div>
   )

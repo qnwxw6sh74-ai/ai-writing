@@ -112,7 +112,6 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
       setPhase("reviewing") // ← 暂停等用户操作
     } catch (e: any) {
       setError(`第${idx + 1}段生成失败: ${e.message}`)
-      setPhase("editing") // 回退，但实际回到 edit 或保留上次状态
       // 如果已有生成的内容则回到 reviewing
       if (generatedSections[idx]) {
         setCurrentContent(generatedSections[idx])
@@ -177,6 +176,7 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
 
   // ====== 组装全文 ======
   const assembleAndFinish = useCallback(async () => {
+    const lastIdx = outline.sections.length - 1
     setPhase("assembling")
     setCurrentSectionIdx(-1)
     setError("")
@@ -194,9 +194,11 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
     } catch (e: any) {
       setError(`文章组装失败: ${e.message}`)
       // 回退到最后一个段落的 reviewing
+      setCurrentSectionIdx(lastIdx)
+      setCurrentContent(generatedSections[lastIdx] || "")
       setPhase("reviewing")
     }
-  }, [outline.outlineId, outline.title, onGenerated])
+  }, [outline.outlineId, outline.title, outline.sections.length, generatedSections, onGenerated])
 
   // ====== 开始生成（从第一段） ======
   const startGenerating = useCallback(async () => {
@@ -211,7 +213,6 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
   }
 
   const totalSections = outline.sections.length
-  const completedSections = Object.keys(generatedSections).length
   const confirmedCount = confirmedSections.size
 
   // ==================== REVIEWING 阶段 UI ====================

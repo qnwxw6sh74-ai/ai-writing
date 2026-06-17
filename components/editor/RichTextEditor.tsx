@@ -14,6 +14,7 @@ export interface RichTextEditorHandle {
   getText: () => string
   getHTML: () => string
   setContent: (html: string) => void
+  replaceSelection: (text: string) => void
 }
 
 interface Props {
@@ -25,13 +26,13 @@ interface Props {
 }
 
 const TOOLBAR_BUTTONS = [
-  { key: "bold", icon: Bold, title: "粗体", action: (e: any) => e.chain().focus().toggleBold().run() },
-  { key: "italic", icon: Italic, title: "斜体", action: (e: any) => e.chain().focus().toggleItalic().run() },
-  { key: "underline", icon: UnderlineIcon, title: "下划线", action: (e: any) => e.chain().focus().toggleUnderline().run() },
-  { key: "heading2", icon: Heading2, title: "二级标题", action: (e: any) => e.chain().focus().toggleHeading({ level: 2 }).run() },
-  { key: "heading3", icon: Heading3, title: "三级标题", action: (e: any) => e.chain().focus().toggleHeading({ level: 3 }).run() },
-  { key: "blockquote", icon: Quote, title: "引用块", action: (e: any) => e.chain().focus().toggleBlockquote().run() },
-  { key: "bulletList", icon: List, title: "无序列表", action: (e: any) => e.chain().focus().toggleBulletList().run() },
+  { key: "bold", icon: Bold, title: "粗体", action: (e: any) => e.chain().focus().toggleBold().run(), isActive: (e: any) => e.isActive("bold") },
+  { key: "italic", icon: Italic, title: "斜体", action: (e: any) => e.chain().focus().toggleItalic().run(), isActive: (e: any) => e.isActive("italic") },
+  { key: "underline", icon: UnderlineIcon, title: "下划线", action: (e: any) => e.chain().focus().toggleUnderline().run(), isActive: (e: any) => e.isActive("underline") },
+  { key: "heading2", icon: Heading2, title: "二级标题", action: (e: any) => e.chain().focus().toggleHeading({ level: 2 }).run(), isActive: (e: any) => e.isActive("heading", { level: 2 }) },
+  { key: "heading3", icon: Heading3, title: "三级标题", action: (e: any) => e.chain().focus().toggleHeading({ level: 3 }).run(), isActive: (e: any) => e.isActive("heading", { level: 3 }) },
+  { key: "blockquote", icon: Quote, title: "引用块", action: (e: any) => e.chain().focus().toggleBlockquote().run(), isActive: (e: any) => e.isActive("blockquote") },
+  { key: "bulletList", icon: List, title: "无序列表", action: (e: any) => e.chain().focus().toggleBulletList().run(), isActive: (e: any) => e.isActive("bulletList") },
 ]
 
 export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(
@@ -63,6 +64,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(
       setContent: (html: string) => {
         editor?.commands.setContent(html)
       },
+      replaceSelection: (text: string) => {
+        editor?.chain().focus().insertContent(text).run()
+      },
     }), [editor])
 
     if (!editor) {
@@ -78,14 +82,14 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, Props>(
         {/* 固定工具栏 */}
         {editable && (
           <div className="flex items-center gap-0.5 px-3 py-2 border-b border-zinc-800 bg-zinc-900/80 sticky top-0 z-10 flex-wrap">
-            {TOOLBAR_BUTTONS.map(({ key, icon: Icon, title, action }) => (
+            {TOOLBAR_BUTTONS.map(({ key, icon: Icon, title, action, isActive }) => (
               <button
                 key={key}
                 type="button"
                 title={title}
                 onClick={() => action(editor)}
                 className={`p-1.5 rounded transition-colors ${
-                  editor.isActive(key === "heading2" ? "heading" : key === "heading3" ? "heading" : key === "underline" ? "underline" : key)
+                  isActive(editor)
                     ? "bg-red-600/30 text-red-400"
                     : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700"
                 }`}
