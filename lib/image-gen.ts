@@ -4,13 +4,15 @@
  * 使用 Agnes image-2.1-flash 模型进行文生图。
  * API 兼容 OpenAI Images 格式，地址：https://apihub.agnes-ai.com/v1
  *
+ * 异步模式下无 Cloudflare 代理超时限制，单次请求 60s + 2 次重试。
+ *
  * 环境变量：AGNES_API_KEY — 专用于图片生成，与 AI 文字生成 key 分离
  */
 
 const AGNES_BASE_URL = "https://apihub.agnes-ai.com/v1"
 const IMAGE_MODEL = "agnes-image-2.1-flash"
-const FETCH_TIMEOUT_MS = 30_000 // 单次请求超时（Cloudflare 免费版 100s 限制）
-const MAX_RETRIES = 1
+const FETCH_TIMEOUT_MS = 60_000 // 单次请求超时（异步模式无 Cloudflare 限制）
+const MAX_RETRIES = 2 // 最多重试 2 次（共 3 次尝试，最多 3 分钟）
 
 export interface GenerateImageParams {
   prompt: string
