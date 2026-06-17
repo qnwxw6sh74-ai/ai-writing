@@ -1,21 +1,45 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
-import { Upload, Trash2, Loader2, CheckCircle2, XCircle, Sparkles } from "lucide-react"
+import { Upload, Trash2, Loader2, CheckCircle2, XCircle, Sparkles, Bookmark } from "lucide-react"
 
 interface StyleProfile {
-  sentenceStyle: string
-  vocabulary: string
-  paragraphStructure: string
-  tone: string
-  rhetoric: string
-  rhythm: string
+  avgSentenceLength: string
+  sentencePatterns: string
+  vocabularyPrefs: string
+  openingStyle: string
+  endingStyle: string
+  punctuationEmojiHabits: string
+  emotionalTemperature: string
+  personUsage: string
+  readerRelationship: string
+}
+
+interface StyleMeme {
+  id?: number
+  phrase: string
+  context: string
+  typicalUsage: string
+  usageCount?: number
+}
+
+const profileLabels: Record<keyof StyleProfile, string> = {
+  avgSentenceLength: "平均句长",
+  sentencePatterns: "句式特征",
+  vocabularyPrefs: "词汇偏好",
+  openingStyle: "开头方式",
+  endingStyle: "结尾方式",
+  punctuationEmojiHabits: "标点与表情",
+  emotionalTemperature: "情感温度",
+  personUsage: "人称使用",
+  readerRelationship: "读者关系",
 }
 
 export function StyleUploader() {
   const [articles, setArticles] = useState<{ name: string; text: string }[]>([])
   const [analyzing, setAnalyzing] = useState(false)
   const [profile, setProfile] = useState<StyleProfile | null>(null)
+  const [memes, setMemes] = useState<StyleMeme[]>([])
   const [error, setError] = useState("")
   const [hasExisting, setHasExisting] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -25,9 +49,11 @@ export function StyleUploader() {
   const loadProfile = useCallback(async () => {
     try {
       const res = await fetch("/api/style/profile")
+      if (res.status === 401) { setLoaded(true); return }
       const data = await res.json()
       if (data.hasStyle) {
         setProfile(data.profile)
+        setMemes(data.memes || [])
         setHasExisting(true)
       }
     } catch { /* ignore */ }
@@ -93,13 +119,8 @@ export function StyleUploader() {
         setError(data.error)
       } else {
         setProfile(data.profile)
+        setMemes(data.memes || [])
         setHasExisting(true)
-        // 保存到服务器
-        await fetch("/api/style/profile", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ profile: data.profile }),
-        })
       }
     } catch {
       setError("分析失败，请检查网络后重试")
@@ -113,40 +134,54 @@ export function StyleUploader() {
     if (!confirm("确定要清除风格档案吗？")) return
     await fetch("/api/style/profile", { method: "DELETE" })
     setProfile(null)
+    setMemes([])
     setHasExisting(false)
     setArticles([])
   }
 
-  const profileLabels: Record<keyof StyleProfile, string> = {
-    sentenceStyle: "句式特点",
-    vocabulary: "词汇偏好",
-    paragraphStructure: "段落结构",
-    tone: "语气调性",
-    rhetoric: "常用修辞",
-    rhythm: "文章节奏",
-  }
-
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* 当前风格 */}
+      {/* 当前风格档案 */}
       {loaded && profile && (
         <div className="bg-red-950/20 rounded-xl border border-red-900/30 p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-red-300 flex items-center gap-2">
-              <Sparkles size={18} /> 你的写作风格档案
+              <Sparkles size={18} /> 你的写作风格档案（9 维度）
             </h3>
             <button onClick={handleClear} className="text-xs text-zinc-500 hover:text-red-400 transition-colors">
               清除档案
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+
+          {/* 9 维度网格 */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
             {(Object.keys(profileLabels) as (keyof StyleProfile)[]).map((key) => (
               <div key={key} className="bg-zinc-900/50 rounded-lg p-3">
                 <span className="text-xs text-zinc-500">{profileLabels[key]}</span>
-                <p className="text-sm text-zinc-300 mt-0.5">{profile[key]}</p>
+                <p className="text-sm text-zinc-300 mt-1 leading-relaxed">{profile[key] || "样本不足，暂无法判断"}</p>
               </div>
             ))}
           </div>
+
+          {/* 标志性短句 TOP 5 */}
+          {memes.length > 0 && (
+            <div className="border-t border-red-900/20 pt-4 mt-2">
+              <h4 className="text-sm font-bold text-red-400 flex items-center gap-1.5 mb-3">
+                <Bookmark size={14} /> 个人标志性短句 TOP {memes.length}
+              </h4>
+              <div className="space-y-2">
+                {memes.map((m, i) => (
+                  <div key={i} className="bg-zinc-900/60 rounded-lg p-3 flex items-start gap-3">
+                    <span className="text-xs text-red-500 font-mono shrink-0 mt-0.5">#{i + 1}</span>
+                    <div className="min-w-0">
+                      <p className="text-sm text-zinc-200 font-medium">「{m.phrase}」</p>
+                      <p className="text-xs text-zinc-500 mt-0.5">{m.context || m.typicalUsage}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -176,7 +211,9 @@ export function StyleUploader() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-zinc-200">
               已上传 {articles.length} 篇文章
-              {articles.length < 3 && <span className="text-yellow-400 text-sm ml-2">（还需至少 {3 - articles.length} 篇）</span>}
+              {articles.length < 3 && (
+                <span className="text-yellow-400 text-sm ml-2">（还需至少 {3 - articles.length} 篇）</span>
+              )}
             </h3>
           </div>
           <div className="space-y-2">
@@ -210,7 +247,7 @@ export function StyleUploader() {
             {analyzing ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                AI 正在分析你的写作风格...
+                AI 正在分析你的写作风格（9维度+标志性短句）...
               </>
             ) : (
               <>

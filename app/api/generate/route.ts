@@ -5,6 +5,9 @@ import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
 import { checkGenerateCooldown, recordGenerate, checkIPAutoDeduct } from "@/lib/rate-limit"
 import { getCached, setCached } from "@/lib/generate-cache"
+import { getStyleProfile } from "@/lib/style-profile"
+import { getMemesForUser, selectRandomMemes, buildMemePrompt, recordMemeUsage } from "@/lib/style-meme"
+import { buildForbiddenPrompt } from "@/lib/forbidden-phrases"
 import pool from "@/lib/db"
 
 export async function POST(request: NextRequest) {
@@ -76,21 +79,43 @@ export async function POST(request: NextRequest) {
       }
     } catch { /* DB 不可用，用默认 prompt */ }
 
-    // 读取用户风格档案
-    const styleKey = `user_style_${userId.replace(/[^a-zA-Z0-9_-]/g, "_")}`
+    // === 加载用户风格档案（新表 user_styles） ===
+    let usedMemeIds: number[] = []
+    const uid = /^\d+$/.test(userId) ? parseInt(userId) : 0
+    if (uid > 0) {
+      try {
+        const styleProfile = await getStyleProfile(uid)
+        if (styleProfile) {
+          // 风格参数表（9 维度以结构化方式注入）
+          const styleDesc = Object.entries(styleProfile.profile)
+            .filter(([, v]) => v && String(v).trim())
+            .map(([k, v]) => `【${k}】${v}`)
+            .join("\n")
+          if (styleDesc) {
+            systemPrompt = `${systemPrompt}\n\n【用户风格参数 — 请严格按以下风格特征写作】\n${styleDesc}`
+          }
+
+          // 风格模因注入
+          const allMemes = await getMemesForUser(uid)
+          if (allMemes.length > 0) {
+            const selectedMemes = selectRandomMemes(allMemes, 2)
+            const memePrompt = buildMemePrompt(selectedMemes)
+            if (memePrompt) {
+              systemPrompt = `${systemPrompt}\n\n${memePrompt}`
+              usedMemeIds = selectedMemes.map(m => m.id)
+            }
+          }
+        }
+      } catch { /* 风格加载失败不影响生成 */ }
+    }
+
+    // === AI 禁语库注入 ===
     try {
-      const [styleRows] = await pool.execute(
-        "SELECT `value` FROM site_config WHERE `key` = ?",
-        [styleKey]
-      ) as any[]
-      if (styleRows.length > 0 && styleRows[0].value) {
-        const styleProfile = JSON.parse(styleRows[0].value)
-        const styleDesc = Object.entries(styleProfile)
-          .map(([k, v]) => `- ${k}: ${v}`)
-          .join("\n")
-        systemPrompt = `${systemPrompt}\n\n【用户风格要求——请严格按以下风格写作】\n${styleDesc}`
+      const forbiddenPrompt = await buildForbiddenPrompt()
+      if (forbiddenPrompt) {
+        systemPrompt = `${systemPrompt}\n\n${forbiddenPrompt}`
       }
-    } catch { /* 无风格档案 */ }
+    } catch { /* 禁语加载失败不影响生成 */ }
 
     // === 缓存查询 ===
     if (!mockMode) {
@@ -130,6 +155,11 @@ export async function POST(request: NextRequest) {
     // === 写入缓存（真实 AI 结果才缓存，仅缓存 A 版）===
     if (!fromCache && content && !mockMode) {
       setCached(keyword, domain || "", style || "", content)
+    }
+
+    // === 记录 meme 使用 ===
+    if (usedMemeIds.length > 0) {
+      recordMemeUsage(usedMemeIds).catch(() => {})
     }
 
     // === 登录用户每5次生成自动扣1次（无冷却）===
