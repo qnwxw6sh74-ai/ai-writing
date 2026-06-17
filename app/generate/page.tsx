@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArticleForm } from "@/components/generate/ArticleForm"
 import { ArticleOutput } from "@/components/generate/ArticleOutput"
+import { OutlineEditor } from "@/components/generate/OutlineEditor"
 import { PaymentModal } from "@/components/generate/PaymentModal"
 import { getUserErrorMessage } from "@/lib/fetch-utils"
 
@@ -38,6 +39,14 @@ function GenerateContent() {
   const searchParams = useSearchParams()
   const initialKeyword = searchParams.get("keyword") || ""
 
+  // 链式生成状态
+  type GeneratePhase = "input" | "outline" | "generating" | "result"
+  const [phase, setPhase] = useState<GeneratePhase>("input")
+  const [outlineMode, setOutlineMode] = useState(false)
+  const [outline, setOutline] = useState<{
+    outlineId: number; title: string; sections: { heading: string; estimatedWords: number; keyPoints: string; orderIndex: number }[]
+  } | null>(null)
+
   // 冷却倒计时
   const startCooldown = useCallback((seconds: number) => {
     setCooldownSeconds(seconds)
@@ -69,20 +78,65 @@ function GenerateContent() {
     } catch { /* ignore */ }
   }
 
+  // 大纲模式：生成大纲
+  const handleOutline = async (params: {
+    keyword: string; domain: string; style: string; wordCount: number; modelId?: number
+  }) => {
+    setIsLoading(true)
+    setContent("")
+    setOutline(null)
+    setErrorMsg("")
+
+    try {
+      const res = await fetch("/api/generate/outline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setErrorMsg(data.error || "大纲生成失败")
+        setIsLoading(false)
+        return
+      }
+      setOutline(data)
+      setPhase("outline")
+    } catch (e) {
+      setErrorMsg(getUserErrorMessage(e, "网络连接失败"))
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 大纲全部段落生成完毕 → 显示结果
+  const handleChainDone = (fullArticle: string, title: string) => {
+    setContent(fullArticle)
+    setPhase("result")
+    fetchCredits()
+  }
+
   const handleGenerate = async (params: {
     keyword: string; domain: string; style: string; wordCount: number; modelId?: number
   }) => {
-    // 客户端预检查（快速拦截，避免无意义的请求）
+    // 客户端预检查
     if (credits?.paymentEnabled && credits.remaining <= 0) {
       setShowBuyTip(true)
       return
     }
 
+    // 大纲模式 → 生成大纲
+    if (outlineMode) {
+      await handleOutline(params)
+      return
+    }
+
+    // 快速生成模式（原有逻辑）
     setIsLoading(true)
     setContent("")
     setContentB("")
     setShowBuyTip(false)
     setErrorMsg("")
+    setPhase("input")
 
     try {
       const res = await fetch("/api/generate", {
@@ -190,8 +244,31 @@ function GenerateContent() {
               )}
             </div>
 
-            <ArticleForm onGenerate={handleGenerate} isLoading={isLoading} cooldownSeconds={cooldownSeconds} models={models} initialKeyword={initialKeyword} />
+            {/* 生成模式切换 */}
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-xs text-zinc-500">生成模式：</span>
+              <button
+                type="button"
+                onClick={() => { setOutlineMode(false); setPhase("input"); setOutline(null) }}
+                className={`px-3 py-1 text-xs rounded-full transition-colors ${!outlineMode ? "bg-red-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"}`}
+              >
+                ⚡ 快速生成
+              </button>
+              <button
+                type="button"
+                onClick={() => setOutlineMode(true)}
+                className={`px-3 py-1 text-xs rounded-full transition-colors ${outlineMode ? "bg-red-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"}`}
+              >
+                📋 大纲精生成
+              </button>
+            </div>
 
+            {/* 输入阶段：显示表单 */}
+            {(phase === "input" || !outlineMode) && (
+              <ArticleForm onGenerate={handleGenerate} isLoading={isLoading} cooldownSeconds={cooldownSeconds} models={models} initialKeyword={initialKeyword} />
+            )}
+
+            {/* 加载中骨架屏 */}
             {isLoading && (
               <div className="mt-6 bg-zinc-900/50 rounded-xl border border-zinc-800 p-12 text-center">
                 <div className="animate-pulse space-y-4">
@@ -199,10 +276,25 @@ function GenerateContent() {
                   <div className="h-4 bg-zinc-800 rounded w-1/2 mx-auto" />
                   <div className="h-4 bg-zinc-800 rounded w-2/3 mx-auto" />
                 </div>
-                <p className="text-zinc-500 mt-6 text-sm">AI 正在为您创作，请稍候...</p>
+                <p className="text-zinc-500 mt-6 text-sm">
+                  {outlineMode ? "AI 正在生成文章大纲..." : "AI 正在为您创作，请稍候..."}
+                </p>
               </div>
             )}
 
+            {/* 大纲阶段：显示大纲编辑器 */}
+            {outlineMode && outline && (phase === "outline" || phase === "generating") && (
+              <div className="mt-6">
+                <OutlineEditor
+                  outline={outline}
+                  onGenerated={handleChainDone}
+                  onError={setErrorMsg}
+                  onBack={() => { setPhase("input"); setOutline(null) }}
+                />
+              </div>
+            )}
+
+            {/* 结果阶段：显示文章 */}
             {content && (
               <ArticleOutput
                 content={content}

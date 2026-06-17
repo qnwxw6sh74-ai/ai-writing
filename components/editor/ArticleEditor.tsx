@@ -8,6 +8,31 @@ interface Props {
   onContentChange?: (html: string) => void
 }
 
+/** 简单字符串哈希 */
+function simpleHash(s: string): string {
+  let hash = 0
+  for (let i = 0; i < s.length; i++) {
+    const ch = s.charCodeAt(i)
+    hash = ((hash << 5) - hash) + ch
+    hash |= 0
+  }
+  return Math.abs(hash).toString(16)
+}
+
+/**
+ * 上报编辑行为到服务端（fire-and-forget）
+ */
+async function trackEdit(originalText: string, editedText: string) {
+  const articleHash = simpleHash(originalText.slice(0, 500))
+  try {
+    await fetch("/api/editor/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ originalText, editedText, articleHash }),
+    })
+  } catch { /* 追踪失败不影响编辑保存 */ }
+}
+
 export function ArticleEditor({ content, onContentChange }: Props) {
   const [isEditing, setIsEditing] = useState(false)
   const [text, setText] = useState(content)
@@ -15,7 +40,11 @@ export function ArticleEditor({ content, onContentChange }: Props) {
   const handleSave = useCallback(() => {
     onContentChange?.(text)
     setIsEditing(false)
-  }, [text, onContentChange])
+    // 有实质修改才上报
+    if (text !== content) {
+      trackEdit(content, text)
+    }
+  }, [text, content, onContentChange])
 
   const handleCancel = useCallback(() => {
     setText(content)
