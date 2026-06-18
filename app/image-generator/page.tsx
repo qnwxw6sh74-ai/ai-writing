@@ -2,8 +2,10 @@ import type { Metadata } from "next"
 import { ImageGenerator } from "@/components/image/ImageGenerator"
 
 export const metadata: Metadata = {
-  title: "AI智能配图 - AI公众号爆文网",
-  description: "输入文字描述，选择图片尺寸，即可生成高质量、无版权风险的公众号配图。",
+  title: "AI智能配图 — 免费公众号配图在线生成",
+  description: "AI图片生成器，输入文字描述选择尺寸风格，快速生成高质量无版权公众号配图。支持写实摄影、扁平插画、3D渲染等多种风格。",
+  keywords: "AI配图,公众号配图,AI图片生成,免费配图,文章配图,AI插画,智能配图,公众号封面",
+  alternates: { canonical: "https://w.wyrunwu.com/image-generator" },
 }
 
 export const dynamic = "force-dynamic"

@@ -16,22 +16,29 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "AI爆文生成器 | 公众号AI内容创作工具 - 公众号爆文网",
-  description: "专业的AI文章生成工具，支持多领域智能创作，快速生成高质量原创文章。适用于公众号、自媒体、博客等内容创作场景。",
-  keywords: "公众号爆文,AI写作,文章生成器,公众号写作,自媒体助手,智能写作,内容创作,AI助手",
-  authors: [{ name: "智能写作助手" }],
-  robots: { index: true, follow: true },
+  title: {
+    default: "公众号爆文生成器 — AI智能写作助手，一键生成高质量原创文章",
+    template: "%s — 公众号爆文网",
+  },
+  description: "专业的AI公众号文章生成工具，覆盖情感、职场、教育等30+领域。输入关键词秒级生成爆款文章、黄金标题、智能配图，助你轻松产出10W+爆文。支持AI写作、文章生成器、智能写作、公众号编辑等场景。",
+  keywords: "AI写作,公众号爆文,文章生成器,智能写作,公众号写作,自媒体助手,内容创作,AI生成文章,爆文标题,AI配图,AI写作平台,公众号编辑器,微信爆文",
+  authors: [{ name: "公众号爆文网" }],
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
   openGraph: {
-    title: "公众号爆文 - AI文章生成器",
-    description: "专业的AI文章生成工具，支持多领域智能创作，快速生成高质量原创文章。",
-    siteName: "公众号爆文 - AI文章生成器",
+    title: "公众号爆文生成器 — AI智能写作助手",
+    description: "覆盖情感、职场、教育等30+领域，输入关键词秒级生成爆款文章、黄金标题、智能配图，助你轻松产出10W+爆文。",
+    siteName: "公众号爆文网",
     locale: "zh_CN",
     type: "website",
+    url: "https://w.wyrunwu.com",
   },
   twitter: {
     card: "summary_large_image",
-    title: "公众号爆文 - AI文章生成器",
-    description: "专业的AI文章生成工具，支持多领域智能创作，快速生成高质量原创文章。",
+    title: "公众号爆文生成器 — AI智能写作助手",
+    description: "覆盖情感、职场、教育等30+领域，输入关键词秒级生成爆款文章、黄金标题、智能配图。",
+  },
+  alternates: {
+    canonical: "https://w.wyrunwu.com",
   },
 }
 

@@ -45,11 +45,11 @@ export function ArticleForm({ onGenerate, isLoading, cooldownSeconds, models, in
           type="text"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="输入文章主题，如：中年婚姻危机、AI如何改变教育..."
+          placeholder="输入主题开始AI写作，如：中年婚姻危机、AI如何改变教育..."
           className={inputClasses}
           required
         />
-        <p className="text-xs text-zinc-600 mt-1.5">多个关键词用逗号或顿号分隔，AI 会综合多个关键词进行创作</p>
+        <p className="text-xs text-zinc-600 mt-1.5">AI写作文章生成器支持多关键词内容创作，用逗号或顿号分隔</p>
       </div>
 
       <div className="grid sm:grid-cols-4 gap-4">

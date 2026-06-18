@@ -9,3 +9,7 @@ ALTER TABLE generate_history
 
 -- 2. 标记现有记录为 confirmed
 UPDATE generate_history SET status = 'confirmed' WHERE status IS NULL;
+
+-- 3. 更新体验套餐为 ¥2
+UPDATE pricing_plans SET price = 2.00, name = '体验套餐', credits = 10, description = '10次生成额度，快速体验AI写作' WHERE id = 1;
+UPDATE pricing_plans SET is_active = 1 WHERE id = 1;

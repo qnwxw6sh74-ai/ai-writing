@@ -5,10 +5,10 @@ interface FeatureItem {
 }
 
 const defaultItems: FeatureItem[] = [
-  { emoji: "🏷️", title: "爆款标题工坊", description: "输入关键词，AI从海量数据中提炼爆款标题公式，生成5个让用户忍不住点击的黄金标题。", href: "/title-generator" },
-  { emoji: "✍️", title: "全文智能生成", description: "选中一个标题，AI将自动围绕核心主题，构建文章框架、填充论据、优化文笔，一气呵成。", href: "/generate" },
-  { emoji: "📚", title: "多领域专家模型", description: "无论是科技、情感还是养生，我们为不同领域训练专属模型，确保内容深度与专业性。", href: "/generate" },
-  { emoji: "🛠️", title: "实用工具矩阵", description: "集成了AI内容检测、图片生成等辅助工具，覆盖从构思到发布的完整流程。", href: "/" },
+  { emoji: "🏷️", title: "爆款标题工坊", description: "AI写作文章生成器从海量数据提炼爆款标题公式，生成5个让用户忍不住点击的黄金标题。", href: "/title-generator" },
+  { emoji: "✍️", title: "AI文章生成器", description: "AI写作核心引擎，自动构建文章框架、填充论据、优化文笔，高质量内容创作一气呵成。", href: "/generate" },
+  { emoji: "📚", title: "多领域专家模型", description: "科技、情感、养生等多领域AI写作模型，确保内容创作深度与专业性。", href: "/generate" },
+  { emoji: "🛠️", title: "内容创作工具矩阵", description: "AI写作文章生成器集成了AI检测、配图等辅助工具，覆盖内容创作完整流程。", href: "/" },
 ]
 
 interface Props {

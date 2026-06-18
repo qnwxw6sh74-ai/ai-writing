@@ -15,7 +15,7 @@ interface Props {
   links?: FooterLink[]
 }
 
-export function Footer({ email = "contact@你的域名.com", copyright = "公众号爆文生成器 | 本站使用AI大模型驱动，所有内容仅供参考。", links = defaultLinks }: Props) {
+export function Footer({ email = "contact@你的域名.com", copyright = "公众号爆文生成器 — AI写作文章生成器 | 内容创作工具平台", links = defaultLinks }: Props) {
   return (
     <footer className="w-full border-t border-zinc-800 bg-zinc-950 py-8 mt-auto">
       <div className="max-w-7xl mx-auto px-4 text-center">

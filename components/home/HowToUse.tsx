@@ -3,10 +3,10 @@ import Link from "next/link"
 interface StepItem { num: string; label: string; desc: string }
 
 const defaultSteps: StepItem[] = [
-  { num: "1", label: "输入关键词 / 主题", desc: "输入您想要创作的内容主题或关键词" },
-  { num: "2", label: "选择内容风格", desc: "情感 / 职场 / 教育 / 娱乐 等多种风格可选" },
-  { num: "3", label: "点击生成爆文", desc: "AI 将快速生成高质量爆文内容" },
-  { num: "4", label: "质量检测优化", desc: "可进行原创检测与 AI 检测，提升内容质量" },
+  { num: "1", label: "输入关键词 / 主题", desc: "输入内容创作主题，AI写作文章生成器开始工作" },
+  { num: "2", label: "选择内容风格", desc: "情感 / 职场 / 教育 / 娱乐 等30+领域可选" },
+  { num: "3", label: "AI写作一键生成", desc: "文章生成器快速完成高质量内容创作" },
+  { num: "4", label: "质量检测优化", desc: "原创检测 + AI 检测，提升内容创作质量" },
 ]
 
 interface Props {

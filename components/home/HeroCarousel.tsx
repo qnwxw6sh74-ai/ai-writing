@@ -14,9 +14,9 @@ interface QuickLink {
 }
 
 const defaultSlides: Slide[] = [
-  { title: "🎯 一键生成", highlight: "10W+", suffix: "爆款文章", description: "覆盖情感、职场、教育等30+领域，基于最新AI大模型，极速生成高质量爆文。", accent: "from-red-600 to-red-800", btnBorder: "border-red-700", highlightColor: "text-red-400", subColor: "text-red-400", btnText: "✍️ 立即开始创作", href: "/generate", subText: "AI 内容创作工具，助力公众号、自媒体打造高质量爆文" },
-  { title: "🏷️ AI", highlight: "爆款标题", suffix: "生成器", description: "输入核心关键词，AI 为您创作5个极具吸引力的爆款标题，引爆阅读量。", accent: "from-red-700 to-rose-900", btnBorder: "border-red-800", highlightColor: "text-red-300", subColor: "text-red-300", btnText: "🚀 生成黄金标题", href: "/title-generator" },
-  { title: "🖼️ AI", highlight: "智能配图", suffix: "", description: "输入文字描述，选择图片尺寸，即可生成高质量、无版权风险的公众号配图。", accent: "from-rose-800 to-red-950", btnBorder: "border-rose-800", highlightColor: "text-rose-300", subColor: "text-rose-300", btnText: "🎨 设计我的图片", href: "/image-generator" },
+  { title: "🎯 AI写作", highlight: "文章生成器", suffix: "", description: "覆盖情感、职场、教育等30+领域的内容创作平台。基于最新AI大模型，极速生成高质量爆文。", accent: "from-red-600 to-red-800", btnBorder: "border-red-700", highlightColor: "text-red-400", subColor: "text-red-400", btnText: "✍️ 立即开始AI写作", href: "/generate", subText: "AI写作文章生成器 — 公众号自媒体内容创作首选平台" },
+  { title: "🏷️ AI", highlight: "爆款标题", suffix: "生成器", description: "输入核心关键词，AI写作文章生成器为您创作5个极具吸引力的爆款标题，引爆阅读量。", accent: "from-red-700 to-rose-900", btnBorder: "border-red-800", highlightColor: "text-red-300", subColor: "text-red-300", btnText: "🚀 生成黄金标题", href: "/title-generator" },
+  { title: "🖼️ AI", highlight: "智能配图", suffix: "", description: "AI写作配套工具：输入文字描述，生成高质量、无版权风险的公众号配图，完善内容创作。", accent: "from-rose-800 to-red-950", btnBorder: "border-rose-800", highlightColor: "text-rose-300", subColor: "text-rose-300", btnText: "🎨 设计我的图片", href: "/image-generator" },
 ]
 
 const defaultQuickLinks: QuickLink[] = [
