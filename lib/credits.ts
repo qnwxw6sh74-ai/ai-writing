@@ -5,6 +5,7 @@
  * 生成成功后调用 deductCredits() 写入记录。
  */
 import { getPaymentEnabled, getFreeCredits } from "@/lib/config"
+import { checkFreeQuota } from "@/lib/free-quota"
 import pool from "@/lib/db"
 
 /** 从请求头提取用户标识（IP） */
@@ -58,6 +59,12 @@ export interface CreditsResult {
   remaining: number
   /** 付费购买的总次数 */
   purchasedCredits: number
+  /** 免费配额：该 action 已用次数 */
+  freeQuotaUsed: number
+  /** 免费配额：该 action 总次数 */
+  freeQuotaTotal: number
+  /** 按 action 分组的免费已用明细 */
+  freeQuotaByAction?: Record<string, number>
 }
 
 /**
@@ -76,18 +83,34 @@ async function getPurchasedCredits(userId: string): Promise<number> {
 }
 
 /**
- * 检查额度 — 双维度计算
+ * 检查额度 — 双维度 + 免费配额检查
  * @param userId 用户标识（登录时=user_id数字，未登录=IP）
  * @param ip     客户端IP（始终传，用于免费额度计算）
+ * @param action 操作类型（generate/title/image/confirm/assemble），用于免费配额按类型检查
  */
-export async function checkCredits(userId: string, ip: string): Promise<CreditsResult> {
+export async function checkCredits(userId: string, ip: string, action?: string): Promise<CreditsResult> {
   try {
     const paymentEnabled = await getPaymentEnabled()
     if (!paymentEnabled) {
-      return { allowed: true, isLoggedIn: false, paymentEnabled: false, total: Infinity, freeUsed: 0, freeRemaining: Infinity, purchasedUsed: 0, purchasedRemaining: Infinity, used: 0, remaining: Infinity, purchasedCredits: 0 }
+      return {
+        allowed: true, isLoggedIn: false, paymentEnabled: false,
+        total: Infinity, freeUsed: 0, freeRemaining: Infinity,
+        purchasedUsed: 0, purchasedRemaining: Infinity,
+        used: 0, remaining: Infinity, purchasedCredits: 0,
+        freeQuotaUsed: 0, freeQuotaTotal: 0,
+      }
     }
 
     const freeCredits = await getFreeCredits()
+
+    // === 免费配额检查（内存计数器，按 action 类型分别计数）===
+    let freeQuotaUsed = 0
+    let freeQuotaTotal = freeCredits
+    if (action) {
+      const quota = checkFreeQuota(ip, action)
+      freeQuotaUsed = quota.used
+      freeQuotaTotal = quota.total
+    }
 
     // 免费额度 — 始终按 IP 计算（仅统计近90天）
     const [freeRows] = await pool.execute(
@@ -116,8 +139,21 @@ export async function checkCredits(userId: string, ip: string): Promise<CreditsR
     const totalUsed = freeUsed + purchasedUsed
     const totalRemaining = freeRemaining + purchasedRemaining
 
+    // allowed = 免费配额未超 AND (有免费剩余 OR 有付费剩余)
+    const freeQuotaOk = !action || freeQuotaUsed < freeQuotaTotal
+    const hasCredits = totalRemaining > 0
+    const allowed = freeQuotaOk && hasCredits
+
+    // 按 action 分组的免费已用明细
+    const quotaActions = ["generate", "title", "image", "assemble", "confirm"]
+    const freeQuotaByAction: Record<string, number> = {}
+    for (const a of quotaActions) {
+      const q = checkFreeQuota(ip, a)
+      freeQuotaByAction[a] = q.used
+    }
+
     return {
-      allowed: totalRemaining > 0,
+      allowed,
       isLoggedIn,
       paymentEnabled: true,
       total: freeCredits,
@@ -128,10 +164,18 @@ export async function checkCredits(userId: string, ip: string): Promise<CreditsR
       used: totalUsed,
       remaining: totalRemaining,
       purchasedCredits,
+      freeQuotaUsed,
+      freeQuotaTotal,
+      freeQuotaByAction,
     }
   } catch {
-    // DB 异常时保守处理：不允许生成，避免绕过额度检查
-    return { allowed: false, isLoggedIn: false, paymentEnabled: false, total: 0, freeUsed: 0, freeRemaining: 0, purchasedUsed: 0, purchasedRemaining: 0, used: 0, remaining: 0, purchasedCredits: 0 }
+    return {
+      allowed: false, isLoggedIn: false, paymentEnabled: false,
+      total: 0, freeUsed: 0, freeRemaining: 0,
+      purchasedUsed: 0, purchasedRemaining: 0,
+      used: 0, remaining: 0, purchasedCredits: 0,
+      freeQuotaUsed: 0, freeQuotaTotal: 0,
+    }
   }
 }
 

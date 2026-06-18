@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth-user"
+import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
+import { recordFreeUsage } from "@/lib/free-quota"
 import pool from "@/lib/db"
 
 export const maxDuration = 15
@@ -20,6 +22,32 @@ export async function POST(request: NextRequest) {
     if (!outlineId) {
       return NextResponse.json({ error: "缺少 outlineId" }, { status: 400 })
     }
+
+    // === 积分检查 + 扣费（链式生成路径：组装时扣）===
+    const ip = getUserIdentifier(
+      request.headers.get("x-forwarded-for"),
+      request.headers.get("x-real-ip")
+    )
+    const userId = resolveUserId(
+      request.headers.get("x-user-payload"),
+      request.headers.get("x-forwarded-for"),
+      request.headers.get("x-real-ip")
+    )
+    const creditsCheck = await checkCredits(userId, ip, "assemble")
+
+    if (!creditsCheck.allowed) {
+      const msg = creditsCheck.isLoggedIn
+        ? "额度已用完，请购买套餐继续使用"
+        : `免费次数已用完（${creditsCheck.freeQuotaUsed}/${creditsCheck.freeQuotaTotal}），请登录后购买套餐`
+      return NextResponse.json(
+        { error: msg, code: "NO_CREDITS", credits: creditsCheck },
+        { status: 402 }
+      )
+    }
+
+    // 扣积分 + 记录免费配额
+    const updatedCredits = await deductCredits(userId, ip, "assemble")
+    recordFreeUsage(ip, "assemble").catch(() => {})
 
     // 加载大纲
     const [rows] = await pool.execute(
@@ -75,6 +103,7 @@ export async function POST(request: NextRequest) {
       title: outline.title,
       sectionCount: sections.length,
       generatedCount: Object.keys(sectionContents).length,
+      credits: updatedCredits,
     })
   } catch (e) {
     console.error("[assemble] error:", e)

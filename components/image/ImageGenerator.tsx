@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ImageIcon, Loader2, Download, RefreshCw, AlertCircle } from "lucide-react"
+import { ImageIcon, Loader2, Download, RefreshCw, AlertCircle, LogIn } from "lucide-react"
 import { getUserErrorMessage } from "@/lib/fetch-utils"
 
 const sizes = [
@@ -29,6 +29,7 @@ export function ImageGenerator() {
   const [error, setError] = useState<string | null>(null)
   const [credits, setCredits] = useState<CreditsInfo | null>(null)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [creditsFull, setCreditsFull] = useState<any>(null)
 
   // 组件卸载时清理 timer
   const [timerId, setTimerId] = useState(0)
@@ -36,14 +37,28 @@ export function ImageGenerator() {
     return () => { if (timerId) window.clearTimeout(timerId) }
   }, [timerId])
 
-  // 检测登录状态
+  // 检测登录状态 + 额度
   useEffect(() => {
     fetch("/api/auth/me").then(r => setIsLoggedIn(r.ok)).catch(() => {})
+    fetch("/api/credits").then(r => r.json()).then(d => {
+      setCreditsFull(d)
+      setIsLoggedIn(d.isLoggedIn || false)
+    }).catch(() => {})
   }, [])
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       setError("请输入图片描述")
+      return
+    }
+
+    // 客户端预检查额度
+    if (creditsFull?.paymentEnabled && creditsFull.remaining <= 0) {
+      if (creditsFull.isLoggedIn) {
+        setError("额度已用完，请购买套餐继续使用")
+      } else {
+        setError("免费次数已用完，请登录后继续使用")
+      }
       return
     }
 

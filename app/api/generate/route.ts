@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { generateMockArticle } from "@/lib/mock-ai"
 import { generateArticle } from "@/lib/ai-client"
 import { checkCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
+import { recordFreeUsage } from "@/lib/free-quota"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
-import { checkGenerateCooldown, recordGenerate, checkIPAutoDeduct } from "@/lib/rate-limit"
+import { checkGenerateCooldown, recordGenerate } from "@/lib/rate-limit"
 import { getCached, setCached } from "@/lib/generate-cache"
 import { augmentSystemPrompt } from "@/lib/style-prompt-builder"
 import { recordMemeUsage } from "@/lib/style-meme"
@@ -31,11 +32,14 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-forwarded-for"),
       request.headers.get("x-real-ip")
     )
-    const creditsCheck = await checkCredits(userId, ip)
+    const creditsCheck = await checkCredits(userId, ip, "generate")
 
     if (!creditsCheck.allowed) {
+      const msg = creditsCheck.isLoggedIn
+        ? "额度已用完，请购买套餐继续使用"
+        : `免费次数已用完（${creditsCheck.freeQuotaUsed}/${creditsCheck.freeQuotaTotal}），请登录后购买套餐`
       return NextResponse.json(
-        { error: "免费额度已用完，请购买套餐继续使用", code: "NO_CREDITS" },
+        { error: msg, code: "NO_CREDITS", credits: creditsCheck },
         { status: 402 }
       )
     }
@@ -132,50 +136,11 @@ export async function POST(request: NextRequest) {
       recordMemeUsage(usedMemeIds).catch(() => {})
     }
 
-    // === 登录用户每5次生成自动扣1次（无冷却）===
-    let autoDeducted = false
-    if (/^\d+$/.test(userId)) {
-      try {
-        await pool.execute(
-          "UPDATE users SET gen_count = gen_count + 1 WHERE id = ?",
-          [parseInt(userId)]
-        )
-
-        const [genRows] = await pool.execute(
-          "SELECT gen_count FROM users WHERE id = ?",
-          [parseInt(userId)]
-        ) as any[]
-        const genCount = Number(genRows[0]?.gen_count) || 0
-
-        if (genCount >= 5) {
-          await pool.execute(
-            "INSERT INTO credits_log (user_identifier, action, credits_used) VALUES (?, 'auto_gen5', 1)",
-            [userId]
-          )
-          await pool.execute(
-            "UPDATE users SET gen_count = 0 WHERE id = ?",
-            [parseInt(userId)]
-          )
-          autoDeducted = true
-        }
-      } catch { /* gen_count 更新失败不影响主流程 */ }
-    }
-
-    // === IP 用户每3次生成自动扣1次（无冷却）===
-    if (!/^\d+$/.test(userId)) {
-      try {
-        if (checkIPAutoDeduct(ip)) {
-          await pool.execute(
-            "INSERT INTO credits_log (user_identifier, action, credits_used) VALUES (?, 'auto_ip3', 1)",
-            [ip]
-          )
-          autoDeducted = true
-        }
-      } catch { /* IP 自动扣费失败不影响主流程 */ }
-    }
+    // === 记录免费配额使用（不扣积分，积分在确认时扣）===
+    recordFreeUsage(ip, "generate").catch(() => {})
 
     // 返回更新后的额度
-    const updatedCredits = await checkCredits(userId, ip)
+    const updatedCredits = await checkCredits(userId, ip, "generate")
 
     // 记录生成冷却
     recordGenerate(cooldownKey)
@@ -183,8 +148,8 @@ export async function POST(request: NextRequest) {
     // 记录生成历史
     try {
       await pool.execute(
-        "INSERT INTO generate_history (type, user_input, result, domain, user_identifier) VALUES (?, ?, ?, ?, ?)",
-        ["article", keyword, content, domain, userId]
+        "INSERT INTO generate_history (type, user_input, result, domain, user_identifier, status) VALUES (?, ?, ?, ?, ?, ?)",
+        ["article", keyword, content, domain, userId, "unconfirmed"]
       )
     } catch { /* DB 不可用 */ }
 
@@ -192,7 +157,6 @@ export async function POST(request: NextRequest) {
       content,
       contentB: contentB || undefined,
       credits: updatedCredits,
-      autoDeducted,
       dual: isDual,
     })
   } catch (error) {

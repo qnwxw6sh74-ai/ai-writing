@@ -8,6 +8,7 @@ interface Props {
   content: string
   onContentChange?: (html: string) => void
   onEditorReady?: (handle: RichTextEditorHandle) => void
+  isLoggedIn?: boolean
 }
 
 /** 简单字符串哈希 */
@@ -35,7 +36,7 @@ async function trackEdit(originalText: string, editedText: string) {
   } catch { /* 追踪失败不影响编辑保存 */ }
 }
 
-export function ArticleEditor({ content, onContentChange, onEditorReady }: Props) {
+export function ArticleEditor({ content, onContentChange, onEditorReady, isLoggedIn }: Props) {
   const [isEditing, setIsEditing] = useState(false)
   const contentRef = useRef(content)
   const editorRef = useRef<RichTextEditorHandle>(null)
@@ -76,17 +77,21 @@ export function ArticleEditor({ content, onContentChange, onEditorReady }: Props
           <h3 className="font-bold text-lg text-zinc-100">📄 生成结果</h3>
           <div className="flex items-center gap-2">
             <span className="text-sm text-zinc-500">约 {content.length} 字</span>
-            <button
-              type="button"
-              onClick={() => {
-                editorRef.current?.setContent(content)
-                setIsEditing(true)
-              }}
-              className="flex items-center gap-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-lg transition-colors border border-zinc-700"
-            >
-              <Pencil size={16} />
-              开始编辑
-            </button>
+            {isLoggedIn ? (
+              <button
+                type="button"
+                onClick={() => {
+                  editorRef.current?.setContent(content)
+                  setIsEditing(true)
+                }}
+                className="flex items-center gap-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded-lg transition-colors border border-zinc-700"
+              >
+                <Pencil size={16} />
+                开始编辑
+              </button>
+            ) : (
+              <span className="text-xs text-zinc-600" title="请登录后编辑">🔒 登录后可编辑</span>
+            )}
           </div>
         </div>
         <div className="prose max-w-none whitespace-pre-wrap leading-relaxed text-zinc-200">

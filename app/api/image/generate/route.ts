@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createImageJob } from "@/lib/image-jobs"
-import { checkCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
+import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
+import { recordFreeUsage } from "@/lib/free-quota"
 
 export const maxDuration = 10 // 仅创建任务，不需要长时间
 
@@ -33,18 +34,22 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-real-ip")
     )
 
-    // === 积分检查（仅检查，不扣费）===
-    const creditsCheck = await checkCredits(userId, ip)
+    // === 积分检查 + 即时扣费（修复异步竞态）===
+    const creditsCheck = await checkCredits(userId, ip, "image")
 
     if (!creditsCheck.allowed) {
       const errorMsg = creditsCheck.isLoggedIn
         ? "额度不足，请购买套餐继续使用"
-        : "免费次数已用完，请登录后继续使用"
+        : `免费次数已用完（${creditsCheck.freeQuotaUsed}/${creditsCheck.freeQuotaTotal}），请登录后继续使用`
       return NextResponse.json(
-        { error: errorMsg, code: "NO_CREDITS", isLoggedIn: creditsCheck.isLoggedIn },
+        { error: errorMsg, code: "NO_CREDITS", credits: creditsCheck },
         { status: 402 }
       )
     }
+
+    // 即时扣费 + 记录免费配额
+    const updatedCredits = await deductCredits(userId, ip, "image")
+    recordFreeUsage(ip, "image").catch(() => {})
 
     // === 构建完整 prompt ===
     const styleSuffix = style && style !== "写实摄影"
@@ -55,17 +60,12 @@ export async function POST(request: NextRequest) {
 
     console.log(`[image-api] 创建异步任务 user=${userId}, size=${sizeParam}, prompt="${fullPrompt.slice(0, 80)}..."`)
 
-    // === 创建异步任务（生成成功后才在回调中扣积分）===
+    // === 创建异步任务（积分已扣，失败时退款）===
     const jobId = createImageJob(fullPrompt, sizeParam, userId, ip)
 
     return NextResponse.json({
       jobId,
-      credits: {
-        remaining: creditsCheck.remaining - 1, // 预估：扣减 1 后的剩余
-        used: creditsCheck.used + 1,
-        freeRemaining: creditsCheck.freeRemaining > 0 ? creditsCheck.freeRemaining - 1 : 0,
-        purchasedRemaining: creditsCheck.freeRemaining > 0 ? creditsCheck.purchasedRemaining : Math.max(0, creditsCheck.purchasedRemaining - 1),
-      },
+      credits: updatedCredits,
       isLoggedIn: creditsCheck.isLoggedIn,
       message: "任务已创建，正在生成...",
     })

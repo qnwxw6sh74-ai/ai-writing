@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-forwarded-for"),
       request.headers.get("x-real-ip")
     )
-    const credits = await checkCredits(userId, ip)
+    const credits = await checkCredits(userId, ip, "confirm")
     if (!credits.allowed) {
       return NextResponse.json({ error: "额度不足" }, { status: 402 })
     }
@@ -50,6 +50,12 @@ export async function POST(request: NextRequest) {
         wordCount || content.trim().length,
       ]
     )
+
+    // 标记最近一条未确认的生成历史为 confirmed
+    await pool.execute(
+      "UPDATE generate_history SET status = 'confirmed' WHERE user_identifier = ? AND status = 'unconfirmed' ORDER BY id DESC LIMIT 1",
+      [userId]
+    ).catch(() => {})
 
     // 解除生成冷却
     confirmGenerate(userId)

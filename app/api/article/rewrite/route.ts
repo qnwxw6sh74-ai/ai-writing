@@ -5,7 +5,7 @@ import { verifyUserToken } from "@/lib/auth-user"
 
 // 改写次数追踪：key=userId:articleHash → { count, lastUsed }
 const rewriteTracker = new Map<string, { count: number; lastUsed: number }>()
-const MAX_REWRITES = 5
+const MAX_REWRITES = 3
 const COOLDOWN_MS = 10_000
 
 export async function POST(request: NextRequest) {

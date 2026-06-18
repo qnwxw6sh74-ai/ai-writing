@@ -22,6 +22,13 @@ interface Props {
   onGenerated: (fullArticle: string, title: string) => void
   onError: (msg: string) => void
   onBack: () => void
+  isLoggedIn?: boolean
+  creditsRemaining?: number
+}
+
+interface SectionVersion {
+  content: string
+  createdAt: string
 }
 
 type Phase = "edit" | "generating" | "reviewing" | "assembling" | "done"
@@ -54,7 +61,7 @@ function trackSectionAction(params: {
   }).catch(() => { /* fire-and-forget */ })
 }
 
-export function OutlineEditor({ outline: initialOutline, onGenerated, onError, onBack }: Props) {
+export function OutlineEditor({ outline: initialOutline, onGenerated, onError, onBack, isLoggedIn, creditsRemaining }: Props) {
   const [outline, setOutline] = useState<OutlineData>(initialOutline)
   const [phase, setPhase] = useState<Phase>("edit")
   const [currentSectionIdx, setCurrentSectionIdx] = useState(-1)
@@ -62,6 +69,9 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
   const [aiOriginalContent, setAiOriginalContent] = useState("") // AI 原始生成内容（用于追踪对比）
   const [generatedSections, setGeneratedSections] = useState<Record<number, string>>({})
   const [confirmedSections, setConfirmedSections] = useState<Set<number>>(new Set())
+  const [sectionVersions, setSectionVersions] = useState<Record<number, SectionVersion[]>>({})
+  const [versionIndex, setVersionIndex] = useState<Record<number, number>>({})
+  const [rewriteRemaining, setRewriteRemaining] = useState<Record<number, number>>({})
   const [error, setError] = useState("")
   const generatingRef = useRef(false) // 防重复调用锁
 
@@ -79,7 +89,7 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
   }
 
   // ====== 生成单个段落 ======
-  const generateSection = useCallback(async (idx: number) => {
+  const generateSection = useCallback(async (idx: number, isRewriteFlag = false) => {
     if (generatingRef.current) return
     generatingRef.current = true
     setPhase("generating")
@@ -90,7 +100,7 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
       const res = await fetch("/api/generate/section", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outlineId: outline.outlineId, sectionIndex: idx }),
+        body: JSON.stringify({ outlineId: outline.outlineId, sectionIndex: idx, isRewrite: isRewriteFlag }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "生成失败")
@@ -99,6 +109,15 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
       setGeneratedSections(prev => ({ ...prev, [idx]: data.content }))
       setCurrentContent(data.content)
       setAiOriginalContent(data.content)
+
+      // 捕获版本历史和重写信息
+      if (data.versions) {
+        setSectionVersions(prev => ({ ...prev, [idx]: data.versions }))
+        setVersionIndex(prev => ({ ...prev, [idx]: 0 })) // 0 = 最新版本
+      }
+      if (data.rewriteRemaining !== undefined) {
+        setRewriteRemaining(prev => ({ ...prev, [idx]: data.rewriteRemaining }))
+      }
 
       // 追踪：AI 生成完成
       trackSectionAction({
@@ -171,7 +190,7 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
       actionType: "rewrite",
     })
 
-    await generateSection(idx)
+    await generateSection(idx, true)
   }, [currentSectionIdx, currentContent, outline.outlineId, generateSection])
 
   // ====== 组装全文 ======
@@ -254,19 +273,84 @@ export function OutlineEditor({ outline: initialOutline, onGenerated, onError, o
           {currentContent !== aiOriginalContent && (
             <p className="text-xs text-yellow-400 mt-1">✏️ 已手动编辑，确认后将保存修改版本</p>
           )}
+
+          {/* 版本回滚控件 */}
+          {sectionVersions[currentSectionIdx]?.length > 0 && (
+            <div className="flex items-center gap-2 mt-2 text-xs">
+              <span className="text-zinc-500">历史版本：</span>
+              <button
+                type="button"
+                disabled={(versionIndex[currentSectionIdx] || 0) <= 0}
+                onClick={() => {
+                  const curIdx = versionIndex[currentSectionIdx] || 0
+                  if (curIdx <= 0) return
+                  const newIdx = curIdx - 1
+                  setVersionIndex(prev => ({ ...prev, [currentSectionIdx]: newIdx }))
+                  const versions = sectionVersions[currentSectionIdx]
+                  const target = versions[versions.length - 1 - newIdx] // 倒序：最新在前
+                  if (target) setCurrentContent(target.content)
+                }}
+                className="text-zinc-500 hover:text-zinc-300 disabled:opacity-30 transition-colors"
+              >
+                ← 上一版
+              </button>
+              <span className="text-zinc-600">
+                {versionIndex[currentSectionIdx] || 0} / {sectionVersions[currentSectionIdx].length}
+              </span>
+              <button
+                type="button"
+                disabled={(versionIndex[currentSectionIdx] || 0) >= sectionVersions[currentSectionIdx].length}
+                onClick={() => {
+                  const curIdx = versionIndex[currentSectionIdx] || 0
+                  const versions = sectionVersions[currentSectionIdx]
+                  if (curIdx >= versions.length) return
+                  const newIdx = curIdx + 1
+                  setVersionIndex(prev => ({ ...prev, [currentSectionIdx]: newIdx }))
+                  // 最新版本 (newIdx=0) 用 aiOriginalContent
+                  if (newIdx === 0) {
+                    setCurrentContent(aiOriginalContent)
+                  } else {
+                    const target = versions[versions.length - 1 - newIdx]
+                    if (target) setCurrentContent(target.content)
+                  }
+                }}
+                className="text-zinc-500 hover:text-zinc-300 disabled:opacity-30 transition-colors"
+              >
+                下一版 →
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setVersionIndex(prev => ({ ...prev, [currentSectionIdx]: 0 }))
+                  setCurrentContent(aiOriginalContent)
+                }}
+                className="text-zinc-500 hover:text-red-400 transition-colors"
+              >
+                最新
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 操作按钮 */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={rewriteSection}
-            disabled={generatingRef.current}
-            className="flex items-center gap-1.5 text-sm bg-zinc-700 hover:bg-zinc-600 text-zinc-300 px-4 py-2.5 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={16} />
-            重写本段
-          </button>
+          {isLoggedIn ? (
+            <button
+              type="button"
+              onClick={rewriteSection}
+              disabled={generatingRef.current || (rewriteRemaining[currentSectionIdx] !== undefined && rewriteRemaining[currentSectionIdx] <= 0)}
+              className="flex items-center gap-1.5 text-sm bg-zinc-700 hover:bg-zinc-600 text-zinc-300 px-4 py-2.5 rounded-lg transition-colors disabled:opacity-50"
+              title={!creditsRemaining ? "额度已用完" : undefined}
+            >
+              <RefreshCw size={16} />
+              重写
+              {rewriteRemaining[currentSectionIdx] !== undefined && (
+                <span className="text-xs text-zinc-500">(剩 {rewriteRemaining[currentSectionIdx]}/5)</span>
+              )}
+            </button>
+          ) : (
+            <span className="text-xs text-zinc-600" title="请登录后重写">🔒 登录后可重写</span>
+          )}
           <button
             type="button"
             onClick={confirmAndAdvance}

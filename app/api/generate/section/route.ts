@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { chatCompletion } from "@/lib/ai-client"
-import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
+import { checkCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
 import { augmentSystemPrompt } from "@/lib/style-prompt-builder"
 import { recordMemeUsage } from "@/lib/style-meme"
@@ -9,10 +9,43 @@ import pool from "@/lib/db"
 
 export const maxDuration = 60
 
+// ====== 段落重写次数限制（内存，服务重启重置）======
+const sectionRewriteTracker = new Map<string, { count: number }>()
+const MAX_SECTION_REWRITES = 5
+
+function checkSectionRewriteLimit(outlineId: number, sectionIndex: number): { allowed: boolean; used: number; remaining: number } {
+  const key = `${outlineId}:${sectionIndex}`
+  const entry = sectionRewriteTracker.get(key)
+  const used = entry?.count || 0
+  return {
+    allowed: used < MAX_SECTION_REWRITES,
+    used,
+    remaining: Math.max(0, MAX_SECTION_REWRITES - used),
+  }
+}
+
+function recordSectionRewrite(outlineId: number, sectionIndex: number): void {
+  const key = `${outlineId}:${sectionIndex}`
+  const entry = sectionRewriteTracker.get(key)
+  if (entry) {
+    entry.count++
+  } else {
+    sectionRewriteTracker.set(key, { count: 1 })
+  }
+}
+
+// 首次生成不算重写，清除重写计数
+function resetSectionRewrite(outlineId: number, sectionIndex: number): void {
+  sectionRewriteTracker.delete(`${outlineId}:${sectionIndex}`)
+}
+
 /**
  * POST /api/generate/section
  * 生成单段内容，带上下文连贯性
- * Body: { outlineId, sectionIndex, modelId? }
+ * Body: { outlineId, sectionIndex, modelId?, isRewrite? }
+ *
+ * 积分策略：不在此扣费。积分在 /api/generate/assemble 时扣除。
+ * 每段最多重写 5 次。
  */
 export async function POST(request: NextRequest) {
   try {
@@ -21,14 +54,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 })
     }
 
-    const { outlineId, sectionIndex, modelId } = await request.json()
+    const { outlineId, sectionIndex, modelId, isRewrite } = await request.json()
     if (!outlineId || sectionIndex === undefined || sectionIndex === null) {
       return NextResponse.json({ error: "缺少 outlineId 或 sectionIndex" }, { status: 400 })
     }
 
+    // ====== 重写次数检查 ======
+    if (isRewrite) {
+      const rewriteCheck = checkSectionRewriteLimit(outlineId, sectionIndex)
+      if (!rewriteCheck.allowed) {
+        return NextResponse.json(
+          { error: `该段落重写次数已用完（${MAX_SECTION_REWRITES}次）`, remaining: 0 },
+          { status: 429 }
+        )
+      }
+    }
+
     // === 加载大纲 ===
     const [rows] = await pool.execute(
-      `SELECT id, user_id, keyword, domain, style, word_count, title, sections, section_contents, credits_deducted
+      `SELECT id, user_id, keyword, domain, style, word_count, title, sections, section_contents, section_versions
        FROM generate_outlines WHERE id = ? AND user_id = ?`,
       [outlineId, user.userId]
     ) as any[]
@@ -58,9 +102,17 @@ export async function POST(request: NextRequest) {
         : {}
     } catch { /* ignore */ }
 
+    // 版本历史
+    let sectionVersions: Record<string, { content: string; createdAt: string }[]> = {}
+    try {
+      sectionVersions = outline.section_versions
+        ? (typeof outline.section_versions === "string" ? JSON.parse(outline.section_versions) : outline.section_versions)
+        : {}
+    } catch { /* ignore */ }
+
     const prevContent = sectionIndex > 0 ? sectionContents[String(sectionIndex - 1)] || "" : ""
 
-    // === 积分检查（第一段时扣费） ===
+    // === 积分检查（仅检查，不扣费。扣费在 assemble） ===
     const ip = getUserIdentifier(
       request.headers.get("x-forwarded-for"),
       request.headers.get("x-real-ip")
@@ -71,24 +123,15 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-real-ip")
     )
 
-    if (!outline.credits_deducted) {
-      const creditsCheck = await checkCredits(userId, ip)
-      if (!creditsCheck.allowed) {
-        return NextResponse.json(
-          { error: "额度不足，请购买套餐继续使用", code: "NO_CREDITS" },
-          { status: 402 }
-        )
-      }
-      // 扣积分（原子操作：WHERE credits_deducted=0 防并发重复扣）
-      await deductCredits(userId, ip, "generate")
-      const [upd] = await pool.execute(
-        `UPDATE generate_outlines SET credits_deducted = 1 WHERE id = ? AND credits_deducted = 0`,
-        [outlineId]
-      ) as any[]
-      // 如果不是本请求设置成功的（被并发请求抢先了），记录但不回滚积分
-      if (upd.affectedRows === 0) {
-        console.log(`[section] outline ${outlineId} credits already deducted by another request`)
-      }
+    const creditsCheck = await checkCredits(userId, ip, "generate")
+    if (!creditsCheck.allowed) {
+      const msg = creditsCheck.isLoggedIn
+        ? "额度已用完，请购买套餐继续使用"
+        : `免费次数已用完（${creditsCheck.freeQuotaUsed}/${creditsCheck.freeQuotaTotal}），请登录后购买套餐`
+      return NextResponse.json(
+        { error: msg, code: "NO_CREDITS" },
+        { status: 402 }
+      )
     }
 
     // === 构建 Prompt ===
@@ -128,14 +171,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "段落生成失败，请稍后重试" }, { status: 500 })
     }
 
-    // === 保存段落（JSON_SET 原子操作，防并发覆盖）===
+    // ====== 版本历史处理 ======
+    const key = String(sectionIndex)
+    const oldContent = sectionContents[key]
+
+    if (isRewrite && oldContent) {
+      // 将旧版本存入版本历史
+      const versions = sectionVersions[key] || []
+      versions.push({ content: oldContent, createdAt: new Date().toISOString() })
+      sectionVersions[key] = versions
+      // 记录重写次数
+      recordSectionRewrite(outlineId, sectionIndex)
+    } else {
+      // 首次生成，清除可能残留的重写计数
+      resetSectionRewrite(outlineId, sectionIndex)
+    }
+
+    // === 保存段落 + 版本历史（原子操作） ===
     try {
       await pool.execute(
         `UPDATE generate_outlines
          SET section_contents = JSON_SET(COALESCE(section_contents, '{}'), ?, ?),
+             section_versions = ?,
              status = 'generating'
          WHERE id = ?`,
-        [`$.${sectionIndex}`, content, outlineId]
+        [`$.${sectionIndex}`, content, JSON.stringify(sectionVersions), outlineId]
       )
     } catch { /* ignore */ }
 
@@ -144,10 +204,15 @@ export async function POST(request: NextRequest) {
       recordMemeUsage(usedMemeIds).catch(() => {})
     }
 
+    const rewriteCheck = checkSectionRewriteLimit(outlineId, sectionIndex)
+
     return NextResponse.json({
       sectionIndex,
       heading: section.heading,
       content,
+      versions: sectionVersions[key] || [],
+      rewriteUsed: rewriteCheck.used,
+      rewriteRemaining: rewriteCheck.remaining,
     })
   } catch (e) {
     console.error("[section] error:", e)

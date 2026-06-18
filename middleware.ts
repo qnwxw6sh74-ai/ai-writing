@@ -127,6 +127,7 @@ export const config = {
     "/api/invite/:path*",
     "/api/plans",
     "/api/editor/track",
+    "/api/title",
     "/admin/:path*",
     "/style-lab",
     "/style-lab/:path*",

@@ -31,11 +31,12 @@ interface Props {
   contentB?: string
   title?: string
   credits?: CreditsInfo | null
+  isLoggedIn?: boolean
   onCreditsChange?: (c: CreditsInfo) => void
   onConfirm?: () => void
 }
 
-export function ArticleOutput({ content, contentB, title, credits, onCreditsChange, onConfirm }: Props) {
+export function ArticleOutput({ content, contentB, title, credits, isLoggedIn, onCreditsChange, onConfirm }: Props) {
   const editorRef = useRef<HTMLDivElement>(null)
   const tipTapRef = useRef<RichTextEditorHandle | null>(null)
   const [confirmed, setConfirmed] = useState(false)
@@ -179,16 +180,20 @@ export function ArticleOutput({ content, contentB, title, credits, onCreditsChan
             <CheckCircle size={12} />
             已确认
           </span>
-          <button
-            type="button"
-            onClick={handleCopyAll}
-            className="flex items-center gap-1 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 rounded transition-colors"
-          >
-            <Copy size={12} />
-            一键复制
-          </button>
+          {isLoggedIn ? (
+            <button
+              type="button"
+              onClick={handleCopyAll}
+              className="flex items-center gap-1 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 rounded transition-colors"
+            >
+              <Copy size={12} />
+              一键复制
+            </button>
+          ) : (
+            <span className="text-xs text-zinc-600" title="请登录后使用">🔒 登录后可复制</span>
+          )}
         </div>
-        <ExportMenu content={content} editorRef={editorRef} />
+        {isLoggedIn && <ExportMenu content={content} editorRef={editorRef} />}
       </div>
 
       {hasDual && (
@@ -206,7 +211,7 @@ export function ArticleOutput({ content, contentB, title, credits, onCreditsChan
         </div>
       )}
       <div ref={editorRef} className="relative">
-        <ArticleEditor key={activeTab} content={currentContent} onEditorReady={(h) => { tipTapRef.current = h }} />
+        <ArticleEditor key={activeTab} content={currentContent} isLoggedIn={isLoggedIn} onEditorReady={(h) => { tipTapRef.current = h }} />
         <RewriteToolbar
           containerRef={editorRef}
           articleHash={activeHash}

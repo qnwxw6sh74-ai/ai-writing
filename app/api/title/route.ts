@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { generateMockTitles } from "@/lib/mock-ai"
 import { generateTitles } from "@/lib/ai-client"
 import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
+import { recordFreeUsage } from "@/lib/free-quota"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
 import pool from "@/lib/db"
 
@@ -26,11 +27,14 @@ export async function POST(request: NextRequest) {
       request.headers.get("x-forwarded-for"),
       request.headers.get("x-real-ip")
     )
-    const creditsCheck = await checkCredits(userId, ip)
+    const creditsCheck = await checkCredits(userId, ip, "title")
 
     if (!creditsCheck.allowed) {
+      const msg = creditsCheck.isLoggedIn
+        ? "额度已用完，请购买套餐继续使用"
+        : `免费次数已用完（${creditsCheck.freeQuotaUsed}/${creditsCheck.freeQuotaTotal}），请登录后继续使用`
       return NextResponse.json(
-        { error: "免费额度已用完，请购买套餐继续使用", code: "NO_CREDITS" },
+        { error: msg, code: "NO_CREDITS", credits: creditsCheck },
         { status: 402 }
       )
     }
@@ -68,8 +72,9 @@ export async function POST(request: NextRequest) {
       titles = generateMockTitles({ keyword: keyword || "默认话题", domain: domain || "通用" })
     }
 
-    // === 生成成功，扣除积分 ===
+    // === 生成成功，扣除积分 + 记录免费配额 ===
     const updatedCredits = await deductCredits(userId, ip, "title")
+    recordFreeUsage(ip, "title").catch(() => {})
 
     return NextResponse.json({ titles, credits: updatedCredits })
   } catch (error) {

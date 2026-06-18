@@ -7,14 +7,23 @@ import { ArticleForm } from "@/components/generate/ArticleForm"
 import { ArticleOutput } from "@/components/generate/ArticleOutput"
 import { OutlineEditor } from "@/components/generate/OutlineEditor"
 import { PaymentModal } from "@/components/generate/PaymentModal"
+import { CreditsDetail } from "@/components/generate/CreditsDetail"
 import { getUserErrorMessage } from "@/lib/fetch-utils"
 
 interface CreditsInfo {
+  isLoggedIn: boolean
   paymentEnabled: boolean
   total: number
   used: number
   remaining: number
   purchasedCredits: number
+  freeQuotaUsed: number
+  freeQuotaTotal: number
+  freeQuotaByAction?: Record<string, number>
+  freeUsed: number
+  freeRemaining: number
+  purchasedUsed: number
+  purchasedRemaining: number
 }
 
 const quickLinks = [
@@ -32,6 +41,7 @@ function GenerateContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [credits, setCredits] = useState<CreditsInfo | null>(null)
   const [showBuyTip, setShowBuyTip] = useState(false)
+  const [creditsDetailOpen, setCreditsDetailOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
   const [models, setModels] = useState<{ id: number; name: string }[]>([])
   const [cooldownSeconds, setCooldownSeconds] = useState(0)
@@ -218,15 +228,21 @@ function GenerateContent() {
                   <p className="text-zinc-400 mt-1">输入关键词，AI 为您生成高质量公众号爆款文章</p>
                 </div>
                 {credits?.paymentEnabled && (
-                  <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => setCreditsDetailOpen(true)}
+                    className="text-right hover:opacity-80 transition-opacity"
+                    title="点击查看额度明细"
+                  >
                     <span className="text-xs text-zinc-500">
                       可用额度
                       {credits.purchasedCredits > 0 && ` (含付费 ${credits.purchasedCredits} 次)`}
+                      {credits.isLoggedIn && ` · 免费 ${credits.freeRemaining}`}
                     </span>
                     <div className={`text-lg font-bold ${credits.remaining > 0 ? "text-red-400" : "text-zinc-500"}`}>
                       {credits.remaining} / {credits.total + credits.purchasedCredits}
                     </div>
-                  </div>
+                  </button>
                 )}
               </div>
 
@@ -237,6 +253,12 @@ function GenerateContent() {
                   onPaid={() => { setShowBuyTip(false); fetchCredits() }}
                 />
               )}
+
+              <CreditsDetail
+                open={creditsDetailOpen}
+                onClose={() => setCreditsDetailOpen(false)}
+                credits={credits}
+              />
 
               {errorMsg && (
                 <div className="mt-3 bg-yellow-950/30 border border-yellow-900/30 rounded-lg p-3">
@@ -291,6 +313,8 @@ function GenerateContent() {
                   onGenerated={handleChainDone}
                   onError={setErrorMsg}
                   onBack={() => { setPhase("input"); setOutline(null) }}
+                  isLoggedIn={credits?.isLoggedIn || false}
+                  creditsRemaining={credits?.remaining || 0}
                 />
               </div>
             )}
@@ -301,6 +325,7 @@ function GenerateContent() {
                 content={content}
                 contentB={contentB || undefined}
                 credits={credits}
+                isLoggedIn={credits?.isLoggedIn || false}
                 onCreditsChange={(c) => setCredits((prev) => prev ? { ...prev, ...c } : prev)}
                 onConfirm={() => { setCooldownSeconds(0); if (cooldownTimer.current) { clearInterval(cooldownTimer.current); cooldownTimer.current = null } }}
               />
