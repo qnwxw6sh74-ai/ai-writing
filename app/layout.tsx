@@ -47,6 +47,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // 延迟加载服务初始化（避免阻塞首屏）
+  import("@/lib/init-server").then(m => m.initServer()).catch(() => {})
+
   const [headerConfig, footerConfig, enablePayment] = await Promise.all([
     getConfig("header_config", { siteName: "公众号爆文生成器", navLinks: [] as { label: string; href: string }[] }),
     getConfig("footer_config", { email: "contact@你的域名.com", copyright: "公众号爆文生成器 | 本站使用AI大模型驱动，所有内容仅供参考。", links: [] as { label: string; href: string }[] }),

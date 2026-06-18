@@ -44,6 +44,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 立即记录免费配额（在生成前，缩小竞态窗口）
+    recordFreeUsage(ip, "generate").catch(() => {})
+
     // === 生成冷却检查（90秒，确认后解除）===
     const cooldownKey = /^\d+$/.test(userId) ? userId : ip
     const cooldown = checkGenerateCooldown(cooldownKey)
@@ -136,10 +139,7 @@ export async function POST(request: NextRequest) {
       recordMemeUsage(usedMemeIds).catch(() => {})
     }
 
-    // === 记录免费配额使用（不扣积分，积分在确认时扣）===
-    recordFreeUsage(ip, "generate").catch(() => {})
-
-    // 返回更新后的额度
+    // 返回更新后的额度（免费配额已在入口处记录）
     const updatedCredits = await checkCredits(userId, ip, "generate")
 
     // 记录生成冷却

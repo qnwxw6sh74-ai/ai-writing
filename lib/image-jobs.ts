@@ -85,11 +85,14 @@ export function getImageJob(id: string): ImageJob | null {
 /** 退款：删除一条积分记录 + 释放免费配额 */
 async function refundCredits(job: { userId: string; ip: string }): Promise<void> {
   try {
-    // 删除最新的 image 积分记录
-    await pool.execute(
-      "DELETE FROM credits_log WHERE user_identifier = ? AND action = 'image' ORDER BY id DESC LIMIT 1",
-      [job.ip]
-    )
+    // 删除最新的 image 积分记录（可能按IP或userId写入，取决于当时免费额度是否还有剩余）
+    const [rows] = await pool.execute(
+      "SELECT id, user_identifier FROM credits_log WHERE action = 'image' AND (user_identifier = ? OR user_identifier = ?) ORDER BY id DESC LIMIT 1",
+      [job.ip, job.userId]
+    ) as any[]
+    if (rows.length > 0) {
+      await pool.execute("DELETE FROM credits_log WHERE id = ?", [rows[0].id])
+    }
     // 释放免费配额
     releaseFreeQuota(job.ip, "image")
   } catch { /* ignore */ }
