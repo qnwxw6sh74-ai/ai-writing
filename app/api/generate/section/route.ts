@@ -189,21 +189,22 @@ export async function POST(request: NextRequest) {
 
     // === 保存段落 + 版本历史（原子操作） ===
     try {
-      // JSON path 用字符串拼接（sectionIndex 始终是数字，无注入风险）
+      // JSON path: 数字键名需引号包裹 → $."0" 而非 $.0（后者被MySQL解释为数组索引）
       await pool.execute(
         `UPDATE generate_outlines
-         SET section_contents = JSON_SET(COALESCE(section_contents, '{}'), '$.${sectionIndex}', ?),
-             section_versions = COALESCE(section_versions, '{}'),
+         SET section_contents = JSON_SET(COALESCE(section_contents, '{}'), '$.\"${sectionIndex}\"', ?),
              status = 'generating'
          WHERE id = ?`,
         [content, outlineId]
       )
-      // 单独更新 section_versions（避免 JSON.stringify 与主更新互相影响）
+      // 版本历史：单独更新避免影响主UPDATE的原子性
       if (Object.keys(sectionVersions).length > 0) {
-        await pool.execute(
-          `UPDATE generate_outlines SET section_versions = ? WHERE id = ?`,
-          [JSON.stringify(sectionVersions), outlineId]
-        )
+        try {
+          await pool.execute(
+            `UPDATE generate_outlines SET section_versions = ? WHERE id = ?`,
+            [JSON.stringify(sectionVersions), outlineId]
+          )
+        } catch { /* 版本历史保存失败不影响主流程 */ }
       }
     } catch (e) {
       console.error("[section] 保存失败:", e)
