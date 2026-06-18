@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [rows] = await pool.execute(
-      `SELECT id, type, title, word_count, metadata, created_at
+      `SELECT id, type, title, word_count, content, metadata, created_at
        FROM user_history ${whereClause}
        ORDER BY created_at DESC LIMIT ? OFFSET ?`,
       [...params, limit, offset]

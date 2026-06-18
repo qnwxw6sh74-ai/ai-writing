@@ -75,6 +75,8 @@ export async function POST(request: NextRequest) {
         : {}
     } catch { /* ignore */ }
 
+    console.log(`[assemble] outlineId=${outlineId}, sections=${sections.length}, sectionContents keys=${Object.keys(sectionContents).join(",")}`)
+
     // 拼接：标题 + 逐段 + 段落间用小标题分隔
     const parts: string[] = [`# ${outline.title}\n`]
 

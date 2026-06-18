@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { User, Settings, Key, Save, ArrowLeft, History, FileText, Download, Upload, Trash2, ChevronLeft, ChevronRight, Gift, Copy, Check } from 'lucide-react'
+import { User, Settings, Key, Save, ArrowLeft, History, FileText, Download, Upload, Trash2, ChevronLeft, ChevronRight, Gift, Copy, Check, ChevronDown, Eye } from 'lucide-react'
 import { getUserErrorMessage } from '@/lib/fetch-utils'
 
 interface HistoryItem {
@@ -11,6 +11,7 @@ interface HistoryItem {
   type: 'article' | 'export' | 'import'
   title: string
   word_count: number
+  content?: string
   metadata: any
   created_at: string
 }
@@ -62,6 +63,7 @@ export default function ProfilePage() {
   const [inviteUrl, setInviteUrl] = useState('')
   const [invitedCount, setInvitedCount] = useState(0)
   const [inviteCopied, setInviteCopied] = useState(false)
+  const [expandedId, setExpandedId] = useState<number | null>(null)
 
   useEffect(() => {
     fetchProfile()
@@ -435,31 +437,67 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {history.map((item) => (
-                  <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className={`p-1.5 rounded ${
-                        item.type === 'article' ? 'bg-blue-950/50 text-blue-400' :
-                        item.type === 'export' ? 'bg-green-950/50 text-green-400' :
-                        'bg-purple-950/50 text-purple-400'
-                      }`}>
-                        {typeIcon(item.type)}
-                      </span>
-                      <div>
-                        <p className="text-sm text-zinc-200 font-medium">{item.title}</p>
-                        <p className="text-xs text-zinc-600">
-                          {typeLabel(item.type)} · {item.word_count}字 · {new Date(item.created_at).toLocaleString('zh-CN')}
-                        </p>
-                      </div>
+                {history.map((item) => {
+                  const isExpanded = expandedId === item.id
+                  return (
+                    <div key={item.id}>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex items-center justify-between hover:border-zinc-700 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className={`p-1.5 rounded shrink-0 ${
+                            item.type === 'article' ? 'bg-blue-950/50 text-blue-400' :
+                            item.type === 'export' ? 'bg-green-950/50 text-green-400' :
+                            'bg-purple-950/50 text-purple-400'
+                          }`}>
+                            {typeIcon(item.type)}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm text-zinc-200 font-medium truncate">{item.title}</p>
+                            <p className="text-xs text-zinc-600">
+                              {typeLabel(item.type)} · {item.word_count}字 · {new Date(item.created_at).toLocaleString('zh-CN')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          {item.content && (
+                            <ChevronDown size={16} className={`text-zinc-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); deleteHistory(item.id) }}
+                            className="text-zinc-700 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </button>
+
+                      {/* 展开的文章内容 */}
+                      {isExpanded && item.content && (
+                        <div className="bg-zinc-800/50 border border-t-0 border-zinc-800 rounded-b-lg p-4 -mt-px">
+                          <div className="prose prose-invert max-w-none text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                            {item.content}
+                          </div>
+                          <div className="mt-3 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(item.content || '')
+                              }}
+                              className="flex items-center gap-1 text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 px-2 py-1 rounded transition-colors"
+                            >
+                              <Copy size={12} />
+                              复制全文
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <button
-                      onClick={() => deleteHistory(item.id)}
-                      className="text-zinc-700 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 

@@ -189,15 +189,25 @@ export async function POST(request: NextRequest) {
 
     // === 保存段落 + 版本历史（原子操作） ===
     try {
+      // JSON path 用字符串拼接（sectionIndex 始终是数字，无注入风险）
       await pool.execute(
         `UPDATE generate_outlines
-         SET section_contents = JSON_SET(COALESCE(section_contents, '{}'), ?, ?),
-             section_versions = ?,
+         SET section_contents = JSON_SET(COALESCE(section_contents, '{}'), '$.${sectionIndex}', ?),
+             section_versions = COALESCE(section_versions, '{}'),
              status = 'generating'
          WHERE id = ?`,
-        [`$.${sectionIndex}`, content, JSON.stringify(sectionVersions), outlineId]
+        [content, outlineId]
       )
-    } catch { /* ignore */ }
+      // 单独更新 section_versions（避免 JSON.stringify 与主更新互相影响）
+      if (Object.keys(sectionVersions).length > 0) {
+        await pool.execute(
+          `UPDATE generate_outlines SET section_versions = ? WHERE id = ?`,
+          [JSON.stringify(sectionVersions), outlineId]
+        )
+      }
+    } catch (e) {
+      console.error("[section] 保存失败:", e)
+    }
 
     // 记录 meme
     if (usedMemeIds.length > 0) {
