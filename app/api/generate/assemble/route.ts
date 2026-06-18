@@ -77,17 +77,16 @@ export async function POST(request: NextRequest) {
 
     console.log(`[assemble] outlineId=${outlineId}, sections=${sections.length}, sectionContents keys=${Object.keys(sectionContents).join(",")}`)
 
-    // 拼接：标题 + 逐段 + 段落间用小标题分隔
-    const parts: string[] = [`# ${outline.title}\n`]
+    // 拼接：标题 + 逐段（HTML格式，兼容 TipTap setContent）
+    const parts: string[] = [`<h2>${outline.title}</h2>`]
 
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i]
       const content = sectionContents[String(i)]
       if (!content) continue
 
-      parts.push(`**${section.heading}**\n`)
-      parts.push(content)
-      parts.push("") // 段落间空行
+      parts.push(`<h3>${section.heading}</h3>`)
+      parts.push(`<p>${content.replace(/\n/g, '<br/>')}</p>`)
     }
 
     const fullArticle = parts.join("\n").trim()
