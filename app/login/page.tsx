@@ -3,13 +3,13 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Mail, Lock } from 'lucide-react'
+import { Mail, Lock, User } from 'lucide-react'
 import { getUserErrorMessage } from '@/lib/fetch-utils'
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [email, setEmail] = useState('')
+  const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -38,12 +38,8 @@ function LoginForm() {
     setSuccess('')
 
     // 前端校验
-    if (!email.trim()) {
-      setError('请输入邮箱地址')
-      return
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('请输入有效的邮箱地址')
+    if (!account.trim()) {
+      setError('请输入邮箱或昵称')
       return
     }
     if (!password) {
@@ -57,7 +53,7 @@ function LoginForm() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ account, password }),
       })
       const data = await res.json()
 
@@ -97,16 +93,16 @@ function LoginForm() {
 
         <form onSubmit={handleSubmit} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-4">
           <div>
-            <label className="block text-sm text-zinc-400 mb-1.5">邮箱</label>
+            <label className="block text-sm text-zinc-400 mb-1.5">邮箱 / 昵称</label>
             <div className="relative">
-              <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
+              <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" />
               <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="your@email.com"
+                type="text"
+                value={account}
+                onChange={e => setAccount(e.target.value)}
+                placeholder="邮箱或昵称"
                 required
-                maxLength={254}
+                maxLength={100}
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 pr-3 py-2.5 text-white text-sm focus:outline-none focus:border-red-500"
               />
             </div>

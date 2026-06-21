@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/db'
-import { verifyPassword, createUserToken, getUserByEmail, TOKEN_EXPIRY_SECONDS, USER_TOKEN_COOKIE } from '@/lib/auth-user'
+import { verifyPassword, createUserToken, getUserByEmailOrNickname, TOKEN_EXPIRY_SECONDS, USER_TOKEN_COOKIE } from '@/lib/auth-user'
 import { checkAuthRateLimit } from '@/lib/rate-limit'
 
 function getClientIP(request: NextRequest): string {
@@ -21,17 +21,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { email, password } = await request.json()
+    const { account, password } = await request.json()
 
-    if (!email || !password) {
-      return NextResponse.json({ error: '邮箱和密码不能为空' }, { status: 400 })
+    if (!account || !password) {
+      return NextResponse.json({ error: '邮箱/昵称和密码不能为空' }, { status: 400 })
     }
 
-    const emailLower = email.trim().toLowerCase()
-    const user = await getUserByEmail(emailLower)
+    const query = account.trim()
+    const user = await getUserByEmailOrNickname(query)
 
     if (!user) {
-      return NextResponse.json({ error: '邮箱未注册' }, { status: 401 })
+      return NextResponse.json({ error: '邮箱/昵称或密码错误' }, { status: 401 })
     }
 
     if (!user.email_verified) {
