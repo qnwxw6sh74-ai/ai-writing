@@ -171,7 +171,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 export async function getUserByEmailOrNickname(query: string): Promise<User | null> {
   try {
     const [rows] = await pool.execute(
-      'SELECT id, email, password_hash, nickname, email_verified, verification_token, bio, favorite_keywords, preferred_style, total_generations, total_exports, last_export_format, created_at, last_login_at FROM users WHERE email = ? OR nickname = ?',
+      'SELECT id, email, password_hash, nickname, email_verified, verification_token, bio, favorite_keywords, preferred_style, total_generations, total_exports, last_export_format, created_at, last_login_at FROM users WHERE email = ? OR COALESCE(nickname, "") = ?',
       [query, query]
     ) as any[]
     return (rows[0] as User) || null
