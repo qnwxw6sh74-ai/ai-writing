@@ -16,7 +16,7 @@ interface PricingPlan {
 const POLL_INTERVAL = 3000 // 3秒轮询一次
 const POLL_MAX = 30 // 最多轮询30次（90秒）
 
-export function PricingClient({ plans }: { plans: PricingPlan[] }) {
+export function PricingClient({ plans, isLoggedIn: initialLoggedIn }: { plans: PricingPlan[]; isLoggedIn: boolean }) {
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null)
   const [payType, setPayType] = useState<number>(0)
   const [orderResult, setOrderResult] = useState<{
@@ -26,13 +26,8 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
   const [isPaying, setIsPaying] = useState(false)
   const [isPolling, setIsPolling] = useState(false)
   const [pollTimedOut, setPollTimedOut] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(initialLoggedIn)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  // 检测登录状态
-  useEffect(() => {
-    fetch("/api/auth/me").then(r => setIsLoggedIn(r.ok)).catch(() => setIsLoggedIn(false))
-  }, [])
 
   // 支付回跳检测
   useEffect(() => {

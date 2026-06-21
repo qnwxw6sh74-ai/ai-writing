@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import pool from "@/lib/db"
 import { getPaymentEnabled } from "@/lib/config"
+import { verifyUserToken } from "@/lib/auth-user"
 import { PricingClient } from "./PricingClient"
 
 export const metadata: Metadata = {
@@ -21,11 +22,23 @@ interface PricingPlan {
   sort_order: number
 }
 
-export default async function PricingPage() {
+export default async function PricingPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const paymentEnabled = await getPaymentEnabled()
   if (!paymentEnabled) {
     redirect("/")
   }
+
+  // 预检登录状态 — 从 cookie 读取 user_token
+  let isLoggedIn = false
+  try {
+    const cookieStore = await import('next/headers').then(m => m.cookies)
+    const cookies = await cookieStore()
+    const token = cookies.get('user_token')?.value
+    if (token) {
+      const payload = await verifyUserToken(token)
+      isLoggedIn = !!payload
+    }
+  } catch { /* ignore */ }
 
   let plans: PricingPlan[] = []
   try {
@@ -35,5 +48,5 @@ export default async function PricingPage() {
     plans = rows
   } catch { /* DB 不可用 */ }
 
-  return <PricingClient plans={plans} />
+  return <PricingClient plans={plans} isLoggedIn={isLoggedIn} />
 }
