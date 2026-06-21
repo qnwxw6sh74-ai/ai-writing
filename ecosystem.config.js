@@ -7,7 +7,7 @@ module.exports = {
       cwd: "/www/wwwroot/w.wyrunwu.com",
       env: {
         NODE_ENV: "production",
-        NODE_OPTIONS: "--max-old-space-size=256",
+        NODE_OPTIONS: "--max-old-space-size=512",
       },
     },
   ],

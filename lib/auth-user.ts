@@ -16,8 +16,10 @@ const BCRYPT_ROUNDS = 10
 export interface User {
   id: number
   email: string
+  password_hash?: string
   nickname: string
   email_verified: number
+  verification_token?: string
   bio: string | null
   favorite_keywords: string | null
   preferred_style: string | null

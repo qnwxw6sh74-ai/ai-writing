@@ -19,5 +19,5 @@ export function sanitizeHtml(html: string): string {
     // 移除 iframe
     .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
     // 移除 <object>/<embed>
-    .replace(/<(?:object|embed)\b[^<]*(?:(?!<\/\1>)<[^<]*)*<\/\1>/gi, "")
+    .replace(/<(?:object|embed)\b[^<]*(?:(?<!<\/)(?:object|embed)[^<]*)*<\/(?:object|embed)>/gi, "")
 }

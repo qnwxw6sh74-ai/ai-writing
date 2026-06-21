@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 })
     }
 
-    const { text, action, articleHash } = await request.json()
+    const { text, action, articleHash, keyword } = await request.json()
     if (!text || typeof text !== "string" || text.trim().length < 5) {
       return NextResponse.json({ error: "请选中至少5个字" }, { status: 400 })
     }
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       regenerate: `请将以下文字**换一种方式表达**，用不同的句式、词汇重写，但意思不变。输出改写后的版本（仅输出改写后的文字）：\n\n${text.trim()}`,
     }
 
-    const resolvedModel = await resolveModel()
+    const resolvedModel = await resolveModel(keyword)
     const overrides = resolvedModel ? buildAIConfigFromModel(resolvedModel) : undefined
 
     const result = await chatCompletion(

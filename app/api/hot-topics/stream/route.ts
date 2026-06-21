@@ -39,14 +39,13 @@ export async function GET() {
       // 清理
       const cleanup = () => {
         closed = true
+        clearTimeout(abortTimer)
         clearInterval(heartbeat)
         unsubscribe()
       }
 
-      // 客户端断开时清理（App Router 无 request.signal，用 AbortSignal 超时兜底）
-      // Next.js App Router 的 ReadableStream 在客户端断开时会自动 cancel
-      const origCancel = (controller as any).__cancel
-      controller.closed?.then?.(cleanup).catch?.(cleanup)
+      // 客户端断开时清理（AbortController 兜底 5 分钟超时）
+      const abortTimer = setTimeout(cleanup, 5 * 60 * 1000)
     },
     cancel() {
       closed = true

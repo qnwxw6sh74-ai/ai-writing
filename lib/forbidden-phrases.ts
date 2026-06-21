@@ -12,7 +12,7 @@ interface ForbiddenPhrase {
   severity: "hard" | "soft"
 }
 
-let cachedPhrases: ForbiddenPhrase[] | null = null
+let cachedPhrases: ForbiddenPhrase[] = []
 let cacheTime = 0
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 分钟
 
@@ -65,6 +65,6 @@ export async function buildForbiddenPrompt(): Promise<string> {
 
 /** 清除缓存（管理后台修改禁语后调用） */
 export function clearForbiddenPhrasesCache(): void {
-  cachedPhrases = null
+  cachedPhrases = []
   cacheTime = 0
 }

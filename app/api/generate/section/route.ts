@@ -54,9 +54,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "请先登录" }, { status: 401 })
     }
 
-    const { outlineId, sectionIndex, modelId, isRewrite } = await request.json()
-    if (!outlineId || sectionIndex === undefined || sectionIndex === null) {
-      return NextResponse.json({ error: "缺少 outlineId 或 sectionIndex" }, { status: 400 })
+    const { outlineId, sectionIndex: siRaw, modelId, isRewrite } = await request.json()
+    const sectionIndex = parseInt(String(siRaw), 10)
+    if (!outlineId || isNaN(sectionIndex)) {
+      return NextResponse.json({ error: "缺少 outlineId 或 sectionIndex 无效" }, { status: 400 })
     }
 
     // ====== 重写次数检查 ======
@@ -187,25 +188,24 @@ export async function POST(request: NextRequest) {
       resetSectionRewrite(outlineId, sectionIndex)
     }
 
-    // === 保存段落 + 版本历史（原子操作） ===
+    // === 保存段落内容 + 版本历史（合并为单次 UPDATE）===
     try {
-      // JSON path: 数字键名需引号包裹 → $."0" 而非 $.0（后者被MySQL解释为数组索引）
-      await pool.execute(
-        `UPDATE generate_outlines
-         SET section_contents = JSON_SET(COALESCE(section_contents, '{}'), '$.\"${sectionIndex}\"', ?),
-             status = 'generating'
-         WHERE id = ?`,
-        [content, outlineId]
-      )
-      // 版本历史：单独更新避免影响主UPDATE的原子性
+      const updates: string[] = [
+        `section_contents = JSON_SET(COALESCE(section_contents, '{}'), '$.\"${sectionIndex}\"', ?)`,
+        `status = 'generating'`,
+      ]
+      const params: any[] = [content, outlineId]
+
+      // 如果有版本历史，一起更新
       if (Object.keys(sectionVersions).length > 0) {
-        try {
-          await pool.execute(
-            `UPDATE generate_outlines SET section_versions = ? WHERE id = ?`,
-            [JSON.stringify(sectionVersions), outlineId]
-          )
-        } catch { /* 版本历史保存失败不影响主流程 */ }
+        updates.push(`section_versions = ?`)
+        params.push(JSON.stringify(sectionVersions))
       }
+
+      await pool.execute(
+        `UPDATE generate_outlines SET ${updates.join(', ')} WHERE id = ?`,
+        params
+      )
     } catch (e) {
       console.error("[section] 保存失败:", e)
     }

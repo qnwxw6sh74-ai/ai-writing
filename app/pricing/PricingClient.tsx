@@ -255,7 +255,7 @@ export function PricingClient({ plans }: { plans: PricingPlan[] }) {
             )}
             {!orderResult.orderId && !orderResult.paid && (
               <div>
-                <p>{orderResult.error || orderResult.message || "支付失败"}</p>
+                <p>{orderResult.message || "支付失败"}</p>
                 {(orderResult.message || "").includes("请登录") && (
                   <a href="/login?redirect=/pricing" className="inline-block mt-2 text-sm text-red-400 underline hover:text-red-300">
                     去登录 →

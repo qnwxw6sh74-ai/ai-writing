@@ -49,13 +49,52 @@ export function confirmGenerate(key: string) {
   }
 }
 
-// ===== IP 自动扣费 =====
+// ===== 生成 API 频率限制（防刷 AI API）=====
+const generateRateTracker = new Map<string, { count: number; resetAt: number }>()
+
+const GENERATE_RATE_LIMITS: Record<string, { max: number; windowMs: number }> = {
+  generate: { max: 5, windowMs: 60_000 },
+  title: { max: 5, windowMs: 60_000 },
+  image: { max: 3, windowMs: 60_000 },
+}
 
 /**
- * 记录一次 IP 生成，返回是否需要自动扣费
- * 每 3 次扣 1 次，无冷却时间
+ * 检查生成端点频率限制
+ * @param key 用户标识（userId 或 IP）
+ * @param endpoint 'generate' | 'title' | 'image'
+ * @returns allowed: 是否允许, retryAfter: 若被限，还需等待秒数
  */
-// ===== 认证频率限制（防暴力破解）=====
+export function checkGenerateRateLimit(
+  key: string,
+  endpoint: "generate" | "title" | "image"
+): { allowed: boolean; retryAfter: number } {
+  const limit = GENERATE_RATE_LIMITS[endpoint] || GENERATE_RATE_LIMITS.generate
+  const now = Date.now()
+
+  let entry = generateRateTracker.get(key)
+  if (!entry || now >= entry.resetAt) {
+    entry = { count: 1, resetAt: now + limit.windowMs }
+    generateRateTracker.set(key, entry)
+    return { allowed: true, retryAfter: 0 }
+  }
+
+  entry.count++
+  if (entry.count > limit.max) {
+    return { allowed: false, retryAfter: Math.ceil((entry.resetAt - now) / 1000) }
+  }
+
+  return { allowed: true, retryAfter: 0 }
+}
+
+// 定期清理（每 5 分钟清除过期的限流记录）
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, val] of generateRateTracker) {
+    if (now >= val.resetAt) generateRateTracker.delete(key)
+  }
+}, 5 * 60_000)
+
+// ===== IP 自动扣费 =====
 
 const authTracker = new Map<string, { count: number; resetAt: number }>()
 

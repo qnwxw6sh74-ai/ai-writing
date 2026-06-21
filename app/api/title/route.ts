@@ -4,6 +4,7 @@ import { generateTitles } from "@/lib/ai-client"
 import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 import { recordFreeUsage } from "@/lib/free-quota"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
+import { checkGenerateRateLimit } from "@/lib/rate-limit"
 import pool from "@/lib/db"
 
 export async function POST(request: NextRequest) {
@@ -36,6 +37,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: msg, code: "NO_CREDITS", credits: creditsCheck },
         { status: 402 }
+      )
+    }
+
+    // === 频率限制（每分钟最多 5 次标题生成）===
+    const rateLimit = checkGenerateRateLimit(userId || ip, "title")
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `生成过于频繁，请等待 ${rateLimit.retryAfter} 秒`, code: "RATE_LIMIT", retryAfter: rateLimit.retryAfter },
+        { status: 429 }
       )
     }
 

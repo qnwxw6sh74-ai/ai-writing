@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createImageJob } from "@/lib/image-jobs"
 import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 import { recordFreeUsage } from "@/lib/free-quota"
+import { checkGenerateRateLimit } from "@/lib/rate-limit"
 
 export const maxDuration = 10 // 仅创建任务，不需要长时间
 
@@ -44,6 +45,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: errorMsg, code: "NO_CREDITS", credits: creditsCheck },
         { status: 402 }
+      )
+    }
+
+    // === 频率限制（每分钟最多 3 次图片生成）===
+    const rateLimit = checkGenerateRateLimit(userId || ip, "image")
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `生成过于频繁，请等待 ${rateLimit.retryAfter} 秒`, code: "RATE_LIMIT", retryAfter: rateLimit.retryAfter },
+        { status: 429 }
       )
     }
 

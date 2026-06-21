@@ -87,8 +87,14 @@ async function getPurchasedCredits(userId: string): Promise<number> {
  * @param userId 用户标识（登录时=user_id数字，未登录=IP）
  * @param ip     客户端IP（始终传，用于免费额度计算）
  * @param action 操作类型（generate/title/image/confirm/assemble），用于免费配额按类型检查
+ * @param opts.skipFreeQuotaDetail 跳过 freeQuotaByAction 明细循环（deductCredits 内部用）
  */
-export async function checkCredits(userId: string, ip: string, action?: string): Promise<CreditsResult> {
+export async function checkCredits(
+  userId: string,
+  ip: string,
+  action?: string,
+  opts?: { skipFreeQuotaDetail?: boolean }
+): Promise<CreditsResult> {
   try {
     const paymentEnabled = await getPaymentEnabled()
     if (!paymentEnabled) {
@@ -120,18 +126,18 @@ export async function checkCredits(userId: string, ip: string, action?: string):
     const freeUsed = Number(freeRows[0]?.used) || 0
     const freeRemaining = Math.max(0, freeCredits - freeUsed)
 
-    // 充值额度 — 仅登录用户（userId 是纯数字）计算
-    const isLoggedIn = /^\d+$/.test(userId)
+    // 充值额度 — 仅登录用户（userId 与 ip 不同说明有 x-user-payload）
+    const isLoggedIn = userId !== ip && /^\d+$/.test(userId)
     let purchasedCredits = 0
     let purchasedUsed = 0
     let purchasedRemaining = 0
     if (isLoggedIn) {
       purchasedCredits = await getPurchasedCredits(userId)
-      const [userRows] = await pool.execute(
+      const [usageRows] = await pool.execute(
         "SELECT COUNT(*) AS used FROM credits_log WHERE user_identifier = ?",
         [userId]
       ) as any[]
-      purchasedUsed = Number(userRows[0]?.used) || 0
+      purchasedUsed = Number(usageRows[0]?.used) || 0
       purchasedRemaining = Math.max(0, purchasedCredits - purchasedUsed)
     }
 
@@ -144,12 +150,15 @@ export async function checkCredits(userId: string, ip: string, action?: string):
     const hasCredits = totalRemaining > 0
     const allowed = freeQuotaOk && hasCredits
 
-    // 按 action 分组的免费已用明细
-    const quotaActions = ["generate", "title", "image", "assemble", "confirm"]
-    const freeQuotaByAction: Record<string, number> = {}
-    for (const a of quotaActions) {
-      const q = checkFreeQuota(ip, a)
-      freeQuotaByAction[a] = q.used
+    // 按 action 分组的免费已用明细（可选，内部调用可跳过）
+    let freeQuotaByAction: Record<string, number> | undefined
+    if (!opts?.skipFreeQuotaDetail) {
+      const quotaActions = ["generate", "title", "image", "assemble", "confirm"]
+      freeQuotaByAction = {}
+      for (const a of quotaActions) {
+        const q = checkFreeQuota(ip, a)
+        freeQuotaByAction[a] = q.used
+      }
     }
 
     return {
@@ -169,8 +178,10 @@ export async function checkCredits(userId: string, ip: string, action?: string):
       freeQuotaByAction,
     }
   } catch {
+    // DB 异常时保守处理：返回 allowed=true 避免锁死所有用户，但记录日志
+    console.error("[credits] checkCredits DB error, falling back to permissive mode")
     return {
-      allowed: false, isLoggedIn: false, paymentEnabled: false,
+      allowed: true, isLoggedIn: false, paymentEnabled: false,
       total: 0, freeUsed: 0, freeRemaining: 0,
       purchasedUsed: 0, purchasedRemaining: 0,
       used: 0, remaining: 0, purchasedCredits: 0,
@@ -189,8 +200,8 @@ export async function deductCredits(
   action: string = "generate"
 ): Promise<CreditsResult> {
   try {
-    // 先查当前状态，决定扣哪边
-    const state = await checkCredits(userId, ip)
+    // 先查当前状态，决定扣哪边（跳过 freeQuotaByAction 明细循环以节省性能）
+    const state = await checkCredits(userId, ip, undefined, { skipFreeQuotaDetail: true })
 
     if (!state.allowed) {
       return state
@@ -210,10 +221,11 @@ export async function deductCredits(
       )
     }
 
-    // 返回更新后状态
-    return checkCredits(userId, ip)
+    // 返回更新后状态（同样跳过明细循环）
+    return checkCredits(userId, ip, undefined, { skipFreeQuotaDetail: true })
   } catch {
-    // DB 异常时保守处理：扣费失败不生成，避免绕过额度检查
-    return { allowed: false, isLoggedIn: false, paymentEnabled: false, total: 0, freeUsed: 0, freeRemaining: 0, purchasedUsed: 0, purchasedRemaining: 0, used: 0, remaining: 0, purchasedCredits: 0 }
+    // DB 异常时 fallback 宽松模式，避免锁死用户
+    console.error("[credits] deductCredits DB error, falling back to permissive mode")
+    return { allowed: true, isLoggedIn: false, paymentEnabled: false, total: 0, freeUsed: 0, freeRemaining: 0, purchasedUsed: 0, purchasedRemaining: 0, used: 0, remaining: 0, purchasedCredits: 0, freeQuotaUsed: 0, freeQuotaTotal: 0 }
   }
 }

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { generateMockArticle } from "@/lib/mock-ai"
 import { generateArticle } from "@/lib/ai-client"
-import { checkCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
+import { checkCredits, deductCredits, resolveUserId, getUserIdentifier } from "@/lib/credits"
 import { recordFreeUsage } from "@/lib/free-quota"
 import { resolveModel, buildAIConfigFromModel } from "@/lib/ai-models"
-import { checkGenerateCooldown, recordGenerate } from "@/lib/rate-limit"
+import { checkGenerateCooldown, recordGenerate, checkGenerateRateLimit } from "@/lib/rate-limit"
 import { getCached, setCached } from "@/lib/generate-cache"
 import { augmentSystemPrompt } from "@/lib/style-prompt-builder"
 import { recordMemeUsage } from "@/lib/style-meme"
@@ -44,15 +44,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 立即记录免费配额（在生成前，缩小竞态窗口）
-    recordFreeUsage(ip, "generate").catch(() => {})
-
     // === 生成冷却检查（90秒，确认后解除）===
     const cooldownKey = /^\d+$/.test(userId) ? userId : ip
     const cooldown = checkGenerateCooldown(cooldownKey)
     if (!cooldown.allowed) {
       return NextResponse.json(
         { error: `请先确认上一篇文章，或等待 ${cooldown.waitSeconds} 秒后再生成`, code: "COOLDOWN", waitSeconds: cooldown.waitSeconds },
+        { status: 429 }
+      )
+    }
+
+    // === 频率限制（每分钟最多 5 次生成）===
+    const rateLimit = checkGenerateRateLimit(cooldownKey, "generate")
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `生成过于频繁，请等待 ${rateLimit.retryAfter} 秒`, code: "RATE_LIMIT", retryAfter: rateLimit.retryAfter },
         { status: 429 }
       )
     }
@@ -139,8 +145,9 @@ export async function POST(request: NextRequest) {
       recordMemeUsage(usedMemeIds).catch(() => {})
     }
 
-    // 返回更新后的额度（免费配额已在入口处记录）
-    const updatedCredits = await checkCredits(userId, ip, "generate")
+    // === 生成成功，扣除积分 + 记录免费配额 ===
+    const updatedCredits = await deductCredits(userId, ip, "generate")
+    recordFreeUsage(ip, "generate").catch(() => {})
 
     // 记录生成冷却
     recordGenerate(cooldownKey)

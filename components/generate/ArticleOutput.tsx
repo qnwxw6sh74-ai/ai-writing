@@ -62,8 +62,8 @@ export function ArticleOutput({ content, contentB, title, credits, isLoggedIn, o
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title || "未命名文章",
-          content,
-          wordCount: content.length,
+          content: currentContent,
+          wordCount: currentContent.length,
         }),
       })
       const data = await res.json()
@@ -88,7 +88,7 @@ export function ArticleOutput({ content, contentB, title, credits, isLoggedIn, o
   }
 
   const handleCopyAll = () => {
-    navigator.clipboard.writeText(content)
+    navigator.clipboard.writeText(currentContent)
   }
 
   const handleReplace = useCallback((_oldText: string, newText: string) => {
@@ -164,7 +164,7 @@ export function ArticleOutput({ content, contentB, title, credits, isLoggedIn, o
 
         {/* 字数统计 */}
         <div className="border-t border-zinc-800 px-4 py-2 flex items-center justify-between text-xs text-zinc-600">
-          <span>约 {content.length} 字</span>
+          <span>约 {currentContent.length} 字</span>
           <span>🔒 未确认不扣次数</span>
         </div>
       </div>
@@ -193,7 +193,7 @@ export function ArticleOutput({ content, contentB, title, credits, isLoggedIn, o
             <span className="text-xs text-zinc-600" title="请登录后使用">🔒 登录后可复制</span>
           )}
         </div>
-        {isLoggedIn && <ExportMenu content={content} editorRef={editorRef} />}
+        {isLoggedIn && <ExportMenu content={currentContent} editorRef={editorRef} />}
       </div>
 
       {hasDual && (

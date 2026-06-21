@@ -38,6 +38,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '邮箱未验证，请先查收验证邮件', code: 'UNVERIFIED' }, { status: 403 })
     }
 
+    if (!user.password_hash) {
+      return NextResponse.json({ error: '账户数据异常，请联系管理员' }, { status: 500 })
+    }
     const valid = await verifyPassword(password, user.password_hash)
     if (!valid) {
       return NextResponse.json({ error: '密码错误' }, { status: 401 })
