@@ -227,7 +227,7 @@ export default function ProfilePage() {
         <div className="flex border-b border-zinc-800 mb-6">
           <button
             onClick={() => setTab('profile')}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-6 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               tab === 'profile' ? 'border-red-500 text-red-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'
             }`}
           >
@@ -236,7 +236,7 @@ export default function ProfilePage() {
           </button>
           <button
             onClick={() => setTab('history')}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-6 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               tab === 'history' ? 'border-red-500 text-red-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'
             }`}
           >
@@ -256,273 +256,281 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* 基本信息卡片 */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-red-900/30 flex items-center justify-center">
-              <User size={20} className="text-red-400" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">{profile?.nickname || profile?.email}</h2>
-              <p className="text-sm text-zinc-500">{profile?.email}</p>
-            </div>
-          </div>
+        {/* 主内容区 — 左右并排 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 左侧：个人信息 */}
+          {tab === 'profile' && (
+            <>
+              {/* 基本信息卡片 */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-red-900/30 flex items-center justify-center">
+                    <User size={20} className="text-red-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">{profile?.nickname || profile?.email}</h2>
+                    <p className="text-sm text-zinc-500">{profile?.email}</p>
+                  </div>
+                </div>
 
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div className="bg-zinc-800 rounded-lg p-3">
-              <div className="text-lg font-bold text-red-400">{profile?.credits?.remaining ?? '-'}</div>
-              <div className="text-xs text-zinc-500">剩余额度</div>
-            </div>
-            <div className="bg-zinc-800 rounded-lg p-3">
-              <div className="text-lg font-bold text-white">{profile?.total_generations ?? 0}</div>
-              <div className="text-xs text-zinc-500">总生成次数</div>
-            </div>
-            <div className="bg-zinc-800 rounded-lg p-3">
-              <div className="text-lg font-bold text-white">{profile?.total_exports ?? 0}</div>
-              <div className="text-xs text-zinc-500">总导出次数</div>
-            </div>
-          </div>
-        </div>
-
-        {/* 邀请 */}
-        {inviteCode && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
-            <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-              <Gift size={18} className="text-yellow-400" /> 邀请好友
-            </h3>
-            <p className="text-sm text-zinc-400 mb-3">
-              邀请好友注册，双方各得 <span className="text-yellow-400 font-bold">3 次</span> 充值额度 · 已成功邀请 <span className="text-yellow-400 font-bold">{invitedCount}</span> 人
-            </p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 bg-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-300 break-all">{inviteUrl}</code>
-              <button
-                onClick={copyInvite}
-                className="flex items-center gap-1 text-sm bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-lg transition-colors shrink-0"
-              >
-                {inviteCopied ? <Check size={14} /> : <Copy size={14} />}
-                {inviteCopied ? '已复制' : '复制'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 编辑资料 */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mb-6">
-          <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-            <Settings size={18} className="text-zinc-400" /> 编辑资料
-          </h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">昵称</label>
-              <input
-                value={editNickname}
-                onChange={e => setEditNickname(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">个人简介</label>
-              <textarea
-                value={editBio}
-                onChange={e => setEditBio(e.target.value)}
-                rows={2}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">常用关键词（逗号分隔）</label>
-              <input
-                value={editKeywords}
-                onChange={e => setEditKeywords(e.target.value)}
-                placeholder="如：中年婚姻,职场生存,副业赚钱"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">偏好文章风格</label>
-              <select
-                value={editStyle}
-                onChange={e => setEditStyle(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
-              >
-                <option value="">不限</option>
-                <option value="通俗易懂">通俗易懂</option>
-                <option value="专业深度">专业深度</option>
-                <option value="幽默风趣">幽默风趣</option>
-                <option value="情感共鸣">情感共鸣</option>
-                <option value="犀利观点">犀利观点</option>
-              </select>
-            </div>
-            <button
-              onClick={handleSaveProfile}
-              disabled={saving}
-              className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-500 text-sm disabled:opacity-50"
-            >
-              <Save size={16} /> {saving ? '保存中...' : '保存'}
-            </button>
-          </div>
-        </div>
-
-        {/* 修改密码 */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-          <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-            <Key size={18} className="text-zinc-400" /> 修改密码
-          </h3>
-          {!showPassword ? (
-            <button
-              onClick={() => setShowPassword(true)}
-              className="text-sm text-red-400 hover:text-red-300"
-            >
-              点击修改密码
-            </button>
-          ) : (
-            <div className="space-y-3">
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={e => setCurrentPassword(e.target.value)}
-                placeholder="当前密码"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
-              />
-              <input
-                type="password"
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                placeholder="新密码（至少6位）"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={handleChangePassword}
-                  disabled={saving}
-                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-500 text-sm disabled:opacity-50"
-                >
-                  {saving ? '修改中...' : '确认修改'}
-                </button>
-                <button
-                  onClick={() => { setShowPassword(false); setCurrentPassword(''); setNewPassword('') }}
-                  className="text-sm text-zinc-500 hover:text-zinc-300"
-                >
-                  取消
-                </button>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="bg-zinc-800 rounded-lg p-3">
+                    <div className="text-lg font-bold text-red-400">{profile?.credits?.remaining ?? '-'}</div>
+                    <div className="text-xs text-zinc-500">剩余额度</div>
+                  </div>
+                  <div className="bg-zinc-800 rounded-lg p-3">
+                    <div className="text-lg font-bold text-white">{profile?.total_generations ?? 0}</div>
+                    <div className="text-xs text-zinc-500">总生成次数</div>
+                  </div>
+                  <div className="bg-zinc-800 rounded-lg p-3">
+                    <div className="text-lg font-bold text-white">{profile?.total_exports ?? 0}</div>
+                    <div className="text-xs text-zinc-500">总导出次数</div>
+                  </div>
+                </div>
               </div>
+
+              {/* 邀请 */}
+              {inviteCode && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                  <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                    <Gift size={18} className="text-yellow-400" /> 邀请好友
+                  </h3>
+                  <p className="text-sm text-zinc-400 mb-3">
+                    邀请好友注册，双方各得 <span className="text-yellow-400 font-bold">3 次</span> 充值额度 · 已成功邀请 <span className="text-yellow-400 font-bold">{invitedCount}</span> 人
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-300 break-all">{inviteUrl}</code>
+                    <button
+                      onClick={copyInvite}
+                      className="flex items-center gap-1 text-sm bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-lg transition-colors shrink-0"
+                    >
+                      {inviteCopied ? <Check size={14} /> : <Copy size={14} />}
+                      {inviteCopied ? '已复制' : '复制'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* 编辑资料 */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                  <Settings size={18} className="text-zinc-400" /> 编辑资料
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-1">昵称</label>
+                    <input
+                      value={editNickname}
+                      onChange={e => setEditNickname(e.target.value)}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-1">个人简介</label>
+                    <textarea
+                      value={editBio}
+                      onChange={e => setEditBio(e.target.value)}
+                      rows={2}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-1">常用关键词（逗号分隔）</label>
+                    <input
+                      value={editKeywords}
+                      onChange={e => setEditKeywords(e.target.value)}
+                      placeholder="如：中年婚姻,职场生存,副业赚钱"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-zinc-400 mb-1">偏好文章风格</label>
+                    <select
+                      value={editStyle}
+                      onChange={e => setEditStyle(e.target.value)}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
+                    >
+                      <option value="">不限</option>
+                      <option value="通俗易懂">通俗易懂</option>
+                      <option value="专业深度">专业深度</option>
+                      <option value="幽默风趣">幽默风趣</option>
+                      <option value="情感共鸣">情感共鸣</option>
+                      <option value="犀利观点">犀利观点</option>
+                    </select>
+                  </div>
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={saving}
+                    className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-500 text-sm disabled:opacity-50"
+                  >
+                    <Save size={16} /> {saving ? '保存中...' : '保存'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 修改密码 */}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                <h3 className="font-bold text-white mb-4 flex items-center gap-2">
+                  <Key size={18} className="text-zinc-400" /> 修改密码
+                </h3>
+                {!showPassword ? (
+                  <button
+                    onClick={() => setShowPassword(true)}
+                    className="text-sm text-red-400 hover:text-red-300"
+                  >
+                    点击修改密码
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={e => setCurrentPassword(e.target.value)}
+                      placeholder="当前密码"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
+                    />
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="新密码（至少6位）"
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-red-500"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleChangePassword}
+                        disabled={saving}
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-500 text-sm disabled:opacity-50"
+                      >
+                        {saving ? '修改中...' : '确认修改'}
+                      </button>
+                      <button
+                        onClick={() => { setShowPassword(false); setCurrentPassword(''); setNewPassword('') }}
+                        className="text-sm text-zinc-500 hover:text-zinc-300"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* 右侧：历史记录 */}
+          {tab === 'history' && (
+            <div className="lg:col-span-1">
+              {/* 类型筛选 */}
+              <div className="flex gap-2 mb-4">
+                {['all', 'article', 'export', 'import'].map(t => (
+                  <button
+                    key={t}
+                    onClick={() => { setHistoryType(t); setHistoryPage(1) }}
+                    className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
+                      historyType === t ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    {t === 'all' ? '全部' : typeLabel(t)}
+                  </button>
+                ))}
+              </div>
+
+              {/* 列表 */}
+              {historyLoading ? (
+                <div className="text-center py-12 text-zinc-500">加载中...</div>
+              ) : history.length === 0 ? (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-12 text-center text-zinc-500 text-sm">
+                  暂无记录
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {history.map((item) => {
+                    const isExpanded = expandedId === item.id
+                    return (
+                      <div key={item.id}>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex items-center justify-between hover:border-zinc-700 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className={`p-1.5 rounded shrink-0 ${
+                              item.type === 'article' ? 'bg-blue-950/50 text-blue-400' :
+                              item.type === 'export' ? 'bg-green-950/50 text-green-400' :
+                              'bg-purple-950/50 text-purple-400'
+                            }`}>
+                              {typeIcon(item.type)}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-sm text-zinc-200 font-medium truncate">{item.title}</p>
+                              <p className="text-xs text-zinc-600">
+                                {typeLabel(item.type)} · {item.word_count}字 · {new Date(item.created_at).toLocaleString('zh-CN')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            {item.content && (
+                              <ChevronDown size={16} className={`text-zinc-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); deleteHistory(item.id) }}
+                              className="text-zinc-700 hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </button>
+
+                        {/* 展开的文章内容 */}
+                        {isExpanded && item.content && (
+                          <div className="bg-zinc-800/50 border border-t-0 border-zinc-800 rounded-b-lg p-4 -mt-px">
+                            <div className="prose prose-invert max-w-none text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                              {item.content}
+                            </div>
+                            <div className="mt-3 flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(item.content || '')
+                                }}
+                                className="flex items-center gap-1 text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 px-2 py-1 rounded transition-colors"
+                              >
+                                <Copy size={12} />
+                                复制全文
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* 分页 */}
+              {historyTotal > 20 && (
+                <div className="flex items-center justify-center gap-4 mt-4">
+                  <button
+                    onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                    disabled={historyPage <= 1}
+                    className="p-1.5 rounded bg-zinc-800 text-zinc-400 disabled:opacity-30 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="text-xs text-zinc-500">{historyPage} / {Math.ceil(historyTotal / 20)}</span>
+                  <button
+                    onClick={() => setHistoryPage(p => p + 1)}
+                    disabled={historyPage >= Math.ceil(historyTotal / 20)}
+                    className="p-1.5 rounded bg-zinc-800 text-zinc-400 disabled:opacity-30 hover:text-white transition-colors"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
-
-        {/* ====== Tab: 历史记录 ====== */}
-        {tab === 'history' && (
-          <div>
-            {/* 类型筛选 */}
-            <div className="flex gap-2 mb-4">
-              {['all', 'article', 'export', 'import'].map(t => (
-                <button
-                  key={t}
-                  onClick={() => { setHistoryType(t); setHistoryPage(1) }}
-                  className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
-                    historyType === t ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  {t === 'all' ? '全部' : typeLabel(t)}
-                </button>
-              ))}
-            </div>
-
-            {/* 列表 */}
-            {historyLoading ? (
-              <div className="text-center py-12 text-zinc-500">加载中...</div>
-            ) : history.length === 0 ? (
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-12 text-center text-zinc-500 text-sm">
-                暂无记录
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {history.map((item) => {
-                  const isExpanded = expandedId === item.id
-                  return (
-                    <div key={item.id}>
-                      <button
-                        type="button"
-                        onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex items-center justify-between hover:border-zinc-700 transition-colors text-left"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className={`p-1.5 rounded shrink-0 ${
-                            item.type === 'article' ? 'bg-blue-950/50 text-blue-400' :
-                            item.type === 'export' ? 'bg-green-950/50 text-green-400' :
-                            'bg-purple-950/50 text-purple-400'
-                          }`}>
-                            {typeIcon(item.type)}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-sm text-zinc-200 font-medium truncate">{item.title}</p>
-                            <p className="text-xs text-zinc-600">
-                              {typeLabel(item.type)} · {item.word_count}字 · {new Date(item.created_at).toLocaleString('zh-CN')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0 ml-2">
-                          {item.content && (
-                            <ChevronDown size={16} className={`text-zinc-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                          )}
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); deleteHistory(item.id) }}
-                            className="text-zinc-700 hover:text-red-400 transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </button>
-
-                      {/* 展开的文章内容 */}
-                      {isExpanded && item.content && (
-                        <div className="bg-zinc-800/50 border border-t-0 border-zinc-800 rounded-b-lg p-4 -mt-px">
-                          <div className="prose prose-invert max-w-none text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
-                            {item.content}
-                          </div>
-                          <div className="mt-3 flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigator.clipboard.writeText(item.content || '')
-                              }}
-                              className="flex items-center gap-1 text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 px-2 py-1 rounded transition-colors"
-                            >
-                              <Copy size={12} />
-                              复制全文
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* 分页 */}
-            {historyTotal > 20 && (
-              <div className="flex items-center justify-center gap-4 mt-4">
-                <button
-                  onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
-                  disabled={historyPage <= 1}
-                  className="p-1.5 rounded bg-zinc-800 text-zinc-400 disabled:opacity-30 hover:text-white transition-colors"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span className="text-xs text-zinc-500">{historyPage} / {Math.ceil(historyTotal / 20)}</span>
-                <button
-                  onClick={() => setHistoryPage(p => p + 1)}
-                  disabled={historyPage >= Math.ceil(historyTotal / 20)}
-                  className="p-1.5 rounded bg-zinc-800 text-zinc-400 disabled:opacity-30 hover:text-white transition-colors"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   )
