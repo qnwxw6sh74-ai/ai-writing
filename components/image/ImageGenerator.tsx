@@ -174,10 +174,14 @@ export function ImageGenerator() {
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
+            maxLength={800}
             placeholder="描述你想要的图片内容，如：一位年轻女性在咖啡馆窗边写作..."
             rows={3}
             className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-none"
           />
+          <p className={`text-right text-xs mt-1 ${prompt.length > 700 ? 'text-red-400' : 'text-zinc-600'}`}>
+            {prompt.length}/800
+          </p>
         </div>
 
         <div className="flex gap-4">

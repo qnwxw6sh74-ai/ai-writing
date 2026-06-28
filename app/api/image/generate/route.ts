@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
     if (!prompt || typeof prompt !== "string" || prompt.trim().length === 0) {
       return NextResponse.json({ error: "图片描述不能为空" }, { status: 400 })
     }
-    if (prompt.length > 500) {
-      return NextResponse.json({ error: "描述过长，最多500字" }, { status: 400 })
+    if (prompt.length > 800) {
+      return NextResponse.json({ error: "描述过长，最多800字" }, { status: 400 })
     }
 
     // === 解析用户标识 ===
