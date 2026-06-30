@@ -21,9 +21,9 @@ export async function GET(
 
     const user = userRows[0]
 
-    // 累计消费（credits_log 中该用户的记录数）
+    // 累计消费（SUM credits_used，不是 COUNT 行数）
     const [spendRows] = await pool.execute(
-      'SELECT COUNT(*) AS total FROM credits_log WHERE user_identifier = ?',
+      'SELECT COALESCE(SUM(credits_used), 0) AS total FROM credits_log WHERE user_identifier = ?',
       [id]
     ) as any[][]
     const totalSpent = Number(spendRows[0]?.total) || 0

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       `SELECT u.id, u.email, u.nickname, u.email_verified, u.total_generations, u.total_exports,
               u.last_export_format, u.preferred_style, u.created_at, u.last_login_at,
               COALESCE((SELECT SUM(credits_added) FROM credits_recharge WHERE user_identifier = CAST(u.id AS CHAR)), 0) as purchased_credits,
-              COALESCE((SELECT COUNT(*) FROM credits_log WHERE user_identifier = CAST(u.id AS CHAR)), 0) as credits_used
+              COALESCE((SELECT SUM(credits_used) FROM credits_log WHERE user_identifier = CAST(u.id AS CHAR)), 0) as credits_used
        FROM users u
        ${whereClause}
        ORDER BY u.created_at DESC

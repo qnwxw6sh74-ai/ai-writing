@@ -71,7 +71,23 @@ export async function PATCH(
       }
 
       case 'reset_usage': {
-        await pool.execute('DELETE FROM credits_log WHERE user_identifier = ?', [id])
+        // 先查询当前消费总量
+        const [spendRows] = await pool.execute(
+          'SELECT COALESCE(SUM(credits_used), 0) AS total FROM credits_log WHERE user_identifier = ?',
+          [id]
+        ) as any[][]
+        const totalSpent = Number(spendRows[0]?.total) || 0
+
+        if (totalSpent > 0) {
+          // 清空消费记录的同时，等额减少购买额度，保持余额不变
+          await pool.execute('DELETE FROM credits_log WHERE user_identifier = ?', [id])
+          await pool.execute(
+            'INSERT INTO credits_recharge (user_identifier, credits_added, source) VALUES (?, ?, \'admin_adjust\')',
+            [id, -totalSpent]
+          )
+        } else {
+          await pool.execute('DELETE FROM credits_log WHERE user_identifier = ?', [id])
+        }
         return NextResponse.json({ success: true, message: '消费记录已清空' })
       }
     }

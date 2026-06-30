@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { FileText, LogOut, Globe, DollarSign, PanelRight, ClipboardList, Plus, Trash2, Save, Info, BookOpen, Terminal, Cpu, Users, Search, ChevronLeft, ChevronRight, Eye, Edit3, Key, CreditCard, RotateCcw, AlertTriangle, CheckCircle, XCircle } from "lucide-react"
 
@@ -91,6 +91,12 @@ export default function AdminDashboardPage() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [creditsTarget, setCreditsTarget] = useState("")
+  const activeUserIdRef = React.useRef<number | null>(null)
+
+  // 切标签页时自动关闭弹窗
+  useEffect(() => {
+    if (activeTab !== "users") closeUserDetail()
+  }, [activeTab])
 
   useEffect(() => {
     fetchSettings()
@@ -212,18 +218,22 @@ export default function AdminDashboardPage() {
     setSelectedUser(user)
     setDetailLoading(true)
     setDetailMessage("")
+    activeUserIdRef.current = user.id
     try {
       const res = await fetch(`/api/admin/users/${user.id}/stats`)
       const data = await res.json()
-      if (res.ok) {
+      if (res.ok && activeUserIdRef.current === user.id) {
         setUserDetail(data)
         setCreditsTarget(String(data.stats?.remaining ?? 0))
       }
     } catch { /* ignore */ }
-    finally { setDetailLoading(false) }
+    finally {
+      if (activeUserIdRef.current === user.id) setDetailLoading(false)
+    }
   }
 
   const closeUserDetail = () => {
+    activeUserIdRef.current = null
     setSelectedUser(null)
     setUserDetail(null)
     setDetailMessage("")
@@ -232,6 +242,16 @@ export default function AdminDashboardPage() {
     setCreditsTarget("")
     setEditTab("password")
   }
+
+  // Escape 键关闭弹窗
+  useEffect(() => {
+    if (!selectedUser) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeUserDetail()
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [selectedUser])
 
   const handleResetPassword = async () => {
     if (!newPassword || newPassword.length < 6) {
@@ -278,10 +298,13 @@ export default function AdminDashboardPage() {
       const data = await res.json()
       if (res.ok) {
         setDetailMessage("✅ " + data.message)
-        // 刷新详情
+        // 刷新详情和输入框
         const statsRes = await fetch(`/api/admin/users/${selectedUser!.id}/stats`)
         const statsData = await statsRes.json()
-        if (statsRes.ok) setUserDetail(statsData)
+        if (statsRes.ok) {
+          setUserDetail(statsData)
+          setCreditsTarget(String(statsData.stats?.remaining ?? 0))
+        }
       } else {
         setDetailMessage("❌ " + data.error)
       }
@@ -940,7 +963,10 @@ export default function AdminDashboardPage() {
 
                 {/* ===== 用户详情弹窗 ===== */}
                 {selectedUser && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeUserDetail}>
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={e => {
+                    // 只允许点击背景关闭，不允许点击弹窗内容关闭
+                    if (e.target === e.currentTarget) closeUserDetail()
+                  }}>
                     <div className="bg-zinc-900 rounded-xl border border-zinc-800 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                       {/* Header */}
                       <div className="flex items-center justify-between p-5 border-b border-zinc-800">
