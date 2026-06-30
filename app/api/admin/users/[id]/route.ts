@@ -66,7 +66,7 @@ export async function PATCH(
 
         return NextResponse.json({
           success: true,
-          message: `额度已设置为 ${target}（当前剩余 ${target}）`,
+          message: `额度已设置为 ${target}`,
         })
       }
 
