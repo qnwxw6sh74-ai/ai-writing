@@ -4,10 +4,10 @@ import pool from '@/lib/db'
 /** GET — 获取单个用户的详细统计数据 */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = params.id
+    const { id } = await context.params
 
     // 基础信息
     const [userRows] = await pool.execute(

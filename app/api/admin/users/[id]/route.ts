@@ -5,10 +5,10 @@ import pool from '@/lib/db'
 /** PATCH — 管理员编辑用户 */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = params.id
+    const { id } = await context.params
     const body = await request.json()
     const { action, data } = body
 
