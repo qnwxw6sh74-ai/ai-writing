@@ -5,10 +5,10 @@ import pool from '@/lib/db'
 /** PATCH — 管理员编辑用户 */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params
+    const id = params.id
     const body = await request.json()
     const { action, data } = body
 
@@ -40,7 +40,7 @@ export async function PATCH(
 
         // 查询当前已消费
         const [spendRows] = await pool.execute(
-          'SELECT COUNT(*) AS total FROM credits_log WHERE user_identifier = ?',
+          'SELECT COALESCE(SUM(credits_used), 0) AS total FROM credits_log WHERE user_identifier = ?',
           [id]
         ) as any[][]
         const totalSpent = Number(spendRows[0]?.total) || 0
