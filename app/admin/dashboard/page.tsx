@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { FileText, LogOut, Globe, DollarSign, PanelRight, ClipboardList, Plus, Trash2, Save, Info, BookOpen, Terminal, Cpu, Users, Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { FileText, LogOut, Globe, DollarSign, PanelRight, ClipboardList, Plus, Trash2, Save, Info, BookOpen, Terminal, Cpu, Users, Search, ChevronLeft, ChevronRight, Eye, Edit3, Key, CreditCard, RotateCcw, AlertTriangle, CheckCircle, XCircle } from "lucide-react"
 
 interface SiteConfig {
   key: string; value: string; type: string; description: string; group: string
@@ -24,6 +24,19 @@ interface AdminUser {
   total_generations: number; total_exports: number
   purchased_credits: number; credits_used: number
   created_at: string; last_login_at: string
+}
+
+interface UserDetail {
+  user: {
+    id: number; email: string; nickname: string; email_verified: number
+    total_generations: number; total_exports: number
+    created_at: string; last_login_at: string
+  }
+  stats: {
+    total_spent: number
+    total_purchased: number
+    remaining: number
+  }
 }
 
 const tabs = [
@@ -68,6 +81,16 @@ export default function AdminDashboardPage() {
   const [userPage, setUserPage] = useState(1)
   const [userSearch, setUserSearch] = useState("")
   const [userLoading, setUserLoading] = useState(false)
+
+  // 用户详情弹窗
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
+  const [userDetail, setUserDetail] = useState<UserDetail | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailMessage, setDetailMessage] = useState("")
+  const [editTab, setEditTab] = useState<"password" | "credits">("password")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [creditsTarget, setCreditsTarget] = useState("")
 
   useEffect(() => {
     fetchSettings()
@@ -182,6 +205,111 @@ export default function AdminDashboardPage() {
       setUserTotal(data.total || 0)
     } catch { /* ignore */ }
     finally { setUserLoading(false) }
+  }
+
+  // === 用户详情弹窗 ===
+  const openUserDetail = async (user: AdminUser) => {
+    setSelectedUser(user)
+    setDetailLoading(true)
+    setDetailMessage("")
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/stats`)
+      const data = await res.json()
+      if (res.ok) {
+        setUserDetail(data)
+        setCreditsTarget(String(data.stats?.remaining ?? 0))
+      }
+    } catch { /* ignore */ }
+    finally { setDetailLoading(false) }
+  }
+
+  const closeUserDetail = () => {
+    setSelectedUser(null)
+    setUserDetail(null)
+    setDetailMessage("")
+    setNewPassword("")
+    setConfirmPassword("")
+    setCreditsTarget("")
+    setEditTab("password")
+  }
+
+  const handleResetPassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      setDetailMessage("密码至少6位")
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setDetailMessage("两次密码不一致")
+      return
+    }
+    setDetailLoading(true)
+    try {
+      const res = await fetch(`/api/admin/users/${selectedUser!.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset_password", data: { password: newPassword } }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setDetailMessage("✅ " + data.message)
+        setNewPassword("")
+        setConfirmPassword("")
+        setTimeout(() => setDetailMessage(""), 3000)
+      } else {
+        setDetailMessage("❌ " + data.error)
+      }
+    } catch { setDetailMessage("❌ 操作失败") }
+    finally { setDetailLoading(false) }
+  }
+
+  const handleSetCredits = async () => {
+    const target = parseInt(creditsTarget)
+    if (isNaN(target) || target < 0) {
+      setDetailMessage("请输入有效的额度值")
+      return
+    }
+    setDetailLoading(true)
+    try {
+      const res = await fetch(`/api/admin/users/${selectedUser!.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set_credits", data: { target } }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setDetailMessage("✅ " + data.message)
+        // 刷新详情
+        const statsRes = await fetch(`/api/admin/users/${selectedUser!.id}/stats`)
+        const statsData = await statsRes.json()
+        if (statsRes.ok) setUserDetail(statsData)
+      } else {
+        setDetailMessage("❌ " + data.error)
+      }
+    } catch { setDetailMessage("❌ 操作失败") }
+    finally { setDetailLoading(false) }
+  }
+
+  const handleResetUsage = async () => {
+    if (!confirm("确定要清空该用户的所有消费记录吗？此操作不可恢复。")) return
+    setDetailLoading(true)
+    try {
+      const res = await fetch(`/api/admin/users/${selectedUser!.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset_usage" }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setDetailMessage("✅ " + data.message)
+        // 刷新详情
+        const statsRes = await fetch(`/api/admin/users/${selectedUser!.id}/stats`)
+        const statsData = await statsRes.json()
+        if (statsRes.ok) setUserDetail(statsData)
+      } else {
+        setDetailMessage("❌ " + data.error)
+      }
+    } catch { setDetailMessage("❌ 操作失败") }
+    finally { setDetailLoading(false) }
   }
 
   const totalPages = Math.max(1, Math.ceil(userTotal / 20))
@@ -738,6 +866,7 @@ export default function AdminDashboardPage() {
                             <th className="text-center py-2 px-2 font-medium">已用</th>
                             <th className="text-left py-2 px-2 font-medium">注册时间</th>
                             <th className="text-left py-2 px-2 font-medium">最近登录</th>
+                            <th className="text-center py-2 px-2 font-medium">操作</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -761,6 +890,16 @@ export default function AdminDashboardPage() {
                               </td>
                               <td className="py-2 px-2 text-xs text-zinc-500">
                                 {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString("zh-CN") : '从未登录'}
+                              </td>
+                              <td className="py-2 px-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => openUserDetail(u)}
+                                  className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded transition-colors"
+                                  title="查看详情"
+                                >
+                                  <Eye size={14} />
+                                </button>
                               </td>
                             </tr>
                           ))}
@@ -798,6 +937,163 @@ export default function AdminDashboardPage() {
                     )}
                   </>
                 )}
+
+                {/* ===== 用户详情弹窗 ===== */}
+                {selectedUser && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeUserDetail}>
+                    <div className="bg-zinc-900 rounded-xl border border-zinc-800 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                      {/* Header */}
+                      <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+                        <h3 className="text-lg font-bold text-white">用户详情</h3>
+                        <button type="button" onClick={closeUserDetail} title="关闭" className="text-zinc-500 hover:text-white transition-colors">
+                          <XCircle size={20} />
+                        </button>
+                      </div>
+
+                      {detailLoading && !userDetail ? (
+                        <div className="p-12 text-center text-zinc-500">加载中...</div>
+                      ) : userDetail ? (
+                        <>
+                          {/* 基本信息 */}
+                          <div className="p-5 border-b border-zinc-800">
+                            <h4 className="text-sm font-semibold text-zinc-400 mb-3">基本信息</h4>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div><span className="text-zinc-600">邮箱：</span><span className="font-mono text-zinc-200">{userDetail.user.email}</span></div>
+                              <div><span className="text-zinc-600">昵称：</span><span className="text-zinc-200">{userDetail.user.nickname || '-'}</span></div>
+                              <div><span className="text-zinc-600">注册：</span><span className="text-zinc-400">{userDetail.user.created_at ? new Date(userDetail.user.created_at).toLocaleDateString("zh-CN") : '-'}</span></div>
+                              <div><span className="text-zinc-600">最近登录：</span><span className="text-zinc-400">{userDetail.user.last_login_at ? new Date(userDetail.user.last_login_at).toLocaleDateString("zh-CN") : '从未'}</span></div>
+                              <div><span className="text-zinc-600">邮箱验证：</span><span className={userDetail.user.email_verified ? "text-green-400" : "text-yellow-500"}>{userDetail.user.email_verified ? "已验证" : "未验证"}</span></div>
+                              <div><span className="text-zinc-600">总生成次数：</span><span className="text-zinc-200">{userDetail.user.total_generations}</span></div>
+                              <div><span className="text-zinc-600">总导出次数：</span><span className="text-zinc-200">{userDetail.user.total_exports}</span></div>
+                            </div>
+                          </div>
+
+                          {/* 统计信息 */}
+                          <div className="p-5 border-b border-zinc-800">
+                            <h4 className="text-sm font-semibold text-zinc-400 mb-3">积分统计</h4>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className="bg-zinc-800/50 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-red-400">{userDetail.stats.total_purchased}</div>
+                                <div className="text-xs text-zinc-500 mt-1">累计购买</div>
+                              </div>
+                              <div className="bg-zinc-800/50 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-yellow-400">{userDetail.stats.total_spent}</div>
+                                <div className="text-xs text-zinc-500 mt-1">累计消费</div>
+                              </div>
+                              <div className="bg-zinc-800/50 rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold text-green-400">{userDetail.stats.remaining}</div>
+                                <div className="text-xs text-zinc-500 mt-1">剩余额度</div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 消息提示 */}
+                          {detailMessage && (
+                            <div className="mx-5 mt-4 px-4 py-2 bg-red-950/50 text-red-300 rounded-lg text-sm border border-red-900/30">
+                              {detailMessage}
+                            </div>
+                          )}
+
+                          {/* 编辑 Tab */}
+                          <div className="p-5 space-y-4">
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditTab("password")}
+                                className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                                  editTab === "password" ? "bg-red-950/50 text-red-300 border border-red-900/30" : "text-zinc-500 hover:text-zinc-300"
+                                }`}
+                              >
+                                <Key size={14} /> 修改密码
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditTab("credits")}
+                                className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg transition-colors ${
+                                  editTab === "credits" ? "bg-red-950/50 text-red-300 border border-red-900/30" : "text-zinc-500 hover:text-zinc-300"
+                                }`}
+                              >
+                                <CreditCard size={14} /> 额度管理
+                              </button>
+                            </div>
+
+                            {editTab === "password" && (
+                              <div className="space-y-3 bg-zinc-800/30 rounded-lg p-4">
+                                <div>
+                                  <label className="block text-xs text-zinc-400 mb-1">新密码</label>
+                                  <input
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={e => setNewPassword(e.target.value)}
+                                    placeholder="至少6位"
+                                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:ring-2 focus:ring-red-500 outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-zinc-400 mb-1">确认密码</label>
+                                  <input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={e => setConfirmPassword(e.target.value)}
+                                    placeholder="再次输入新密码"
+                                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:ring-2 focus:ring-red-500 outline-none"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleResetPassword}
+                                  disabled={detailLoading}
+                                  className="flex items-center gap-1.5 text-sm bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50"
+                                >
+                                  <Key size={14} /> 修改密码
+                                </button>
+                              </div>
+                            )}
+
+                            {editTab === "credits" && (
+                              <div className="space-y-3 bg-zinc-800/30 rounded-lg p-4">
+                                <div>
+                                  <label className="block text-xs text-zinc-400 mb-1">设置剩余额度</label>
+                                  <input
+                                    type="number"
+                                    value={creditsTarget}
+                                    onChange={e => setCreditsTarget(e.target.value)}
+                                    placeholder="输入目标额度值"
+                                    min="0"
+                                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:ring-2 focus:ring-red-500 outline-none"
+                                  />
+                                  <p className="text-xs text-zinc-600 mt-1">当前剩余额度：{userDetail.stats.remaining}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleSetCredits}
+                                  disabled={detailLoading}
+                                  className="flex items-center gap-1.5 text-sm bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50"
+                                >
+                                  <CreditCard size={14} /> 设置额度
+                                </button>
+
+                                <div className="pt-2 border-t border-zinc-700/50">
+                                  <button
+                                    type="button"
+                                    onClick={handleResetUsage}
+                                    disabled={detailLoading}
+                                    className="flex items-center gap-1.5 text-sm text-yellow-600 hover:text-yellow-400 transition-colors disabled:opacity-50"
+                                  >
+                                    <RotateCcw size={14} /> 清空消费记录
+                                  </button>
+                                  <p className="text-xs text-zinc-600 mt-1">此操作不可恢复</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="p-12 text-center text-zinc-500">加载失败</div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -828,7 +1124,7 @@ export default function AdminDashboardPage() {
                         <input type="text" value={setting.value || ""} onChange={(e) => handleChange(setting.key, e.target.value)} className={inputClasses} />
                       )}
                       <div className="flex justify-end mt-2">
-                        <button onClick={() => handleSave(setting)} disabled={saving === setting.key}
+                        <button type="button" onClick={() => handleSave(setting)} disabled={saving === setting.key}
                           className="text-sm bg-red-600 text-white px-4 py-1.5 rounded-lg hover:bg-red-500 transition-colors disabled:opacity-50">
                           {saving === setting.key ? "保存中..." : "保存"}
                         </button>
