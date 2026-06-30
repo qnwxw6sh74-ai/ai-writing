@@ -91,7 +91,7 @@ export default function AdminDashboardPage() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [creditsTarget, setCreditsTarget] = useState("")
-  const activeUserIdRef = React.useRef<number | null>(null)
+  const activeUserIdRef = useRef<number | null>(null)
 
   // 切标签页时自动关闭弹窗
   useEffect(() => {
