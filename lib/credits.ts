@@ -145,8 +145,9 @@ export async function checkCredits(
     const totalUsed = freeUsed + purchasedUsed
     const totalRemaining = freeRemaining + purchasedRemaining
 
-    // allowed = 免费配额未超 AND (有免费剩余 OR 有付费剩余)
-    const freeQuotaOk = !action || freeQuotaUsed < freeQuotaTotal
+    // allowed = (免费配额未超 OR 已登录) AND 有剩余额度
+    // 登录用户不受免费配额次数限制，只检查购买额度
+    const freeQuotaOk = !action || freeQuotaUsed < freeQuotaTotal || isLoggedIn
     const hasCredits = totalRemaining > 0
     const allowed = freeQuotaOk && hasCredits
 
