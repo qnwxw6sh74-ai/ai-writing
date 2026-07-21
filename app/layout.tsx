@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     siteName: "公众号爆文网",
     locale: "zh_CN",
     type: "website",
-    url: "https://w.wyrunwu.com",
+    url: "https://pdf.wyrunwu.com",
   },
   twitter: {
     card: "summary_large_image",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     description: "覆盖情感、职场、教育等30+领域，输入关键词秒级生成爆款文章、黄金标题、智能配图。",
   },
   alternates: {
-    canonical: "https://w.wyrunwu.com",
+    canonical: "https://pdf.wyrunwu.com",
   },
 }
 

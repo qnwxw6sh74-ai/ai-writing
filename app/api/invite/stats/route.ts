@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       inviteCode,
-      inviteUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "https://w.wyrunwu.com"}/register?invite=${inviteCode}`,
+      inviteUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "https://pdf.wyrunwu.com"}/register?invite=${inviteCode}`,
       invitedCount,
       reward: "双方各得3次额度",
     })

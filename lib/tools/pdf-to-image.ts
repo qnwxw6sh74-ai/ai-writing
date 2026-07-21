@@ -1,5 +1,5 @@
 import { PDFDocument } from 'pdf-lib'
-import sharp from 'sharp'
+import Jimp from 'jimp'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -28,17 +28,14 @@ export async function pdfToImages(
       </foreignObject>
     </svg>`
 
-    let imageBuffer: Buffer
+    const image = await Jimp.read(Buffer.from(svg))
     if (format === 'jpeg') {
-      imageBuffer = await sharp(Buffer.from(svg)).jpeg({ quality }).toBuffer()
+      image.quality(quality)
+      await image.writeAsync(path.join(outputDir, `page_${i + 1}.jpg`))
     } else {
-      imageBuffer = await sharp(Buffer.from(svg)).png().toBuffer()
+      await image.writeAsync(path.join(outputDir, `page_${i + 1}.png`))
     }
-
-    const ext = format === 'jpeg' ? 'jpg' : format
-    const outPath = path.join(outputDir, `page_${i + 1}.${ext}`)
-    await fs.writeFile(outPath, imageBuffer)
-    files.push(outPath)
+    files.push(path.join(outputDir, `page_${i + 1}.${format === 'jpeg' ? 'jpg' : format}`))
   }
 
   return {

@@ -8,9 +8,9 @@ if (!process.env.JWT_SECRET) {
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
 
 /** 需要用户登录的 API 路由 */
-const USER_API_ROUTES = ["/api/payment/", "/api/style/"]
+const USER_API_ROUTES = ["/api/payment/", "/api/style/", "/api/tools/", "/api/miniapp/"]
 /** 需要用户登录的页面路由 */
-const USER_PAGE_ROUTES = ["/style-lab", "/pricing", "/profile", "/originality-check"]
+const USER_PAGE_ROUTES = ["/style-lab", "/pricing", "/profile", "/originality-check", "/tools"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

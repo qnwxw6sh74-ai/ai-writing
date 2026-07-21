@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: "套餐定价 — 解锁无限AI创作",
   description: "¥2体验套餐快速上手，¥19.9标准套餐适合日常创作，¥39.9专业套餐适合重度自媒体。选择适合你的公众号AI写作套餐。",
   keywords: "AI写作套餐,公众号创作套餐,AI写作定价,AI写作付费,自媒体套餐",
-  alternates: { canonical: "https://w.wyrunwu.com/pricing" },
+  alternates: { canonical: "https://pdf.wyrunwu.com/pricing" },
 }
 
 interface PricingPlan {

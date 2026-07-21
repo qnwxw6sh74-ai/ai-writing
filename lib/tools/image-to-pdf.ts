@@ -1,7 +1,6 @@
 import { PDFDocument } from 'pdf-lib'
+import Jimp from 'jimp'
 import fs from 'node:fs/promises'
-import path from 'node:path'
-import sharp from 'sharp'
 
 export async function imagesToPdf(
   images: string[],
@@ -12,6 +11,8 @@ export async function imagesToPdf(
 
   for (const imagePath of images) {
     const imageBuffer = await fs.readFile(imagePath)
+    const image = await Jimp.read(imageBuffer)
+
     let pageWidth: number, pageHeight: number
 
     switch (pageSize) {
@@ -20,15 +21,13 @@ export async function imagesToPdf(
       case 'letter':
         pageWidth = 612; pageHeight = 792; break
       default:
-        const meta = await sharp(imageBuffer).metadata()
-        pageWidth = meta.width || 595.28
-        pageHeight = meta.height || 841.89
+        pageWidth = image.bitmap.width || 595.28
+        pageHeight = image.bitmap.height || 841.89
     }
 
-    const imgMeta = await sharp(imageBuffer).metadata()
-    const scale = Math.min(pageWidth / imgMeta.width!, pageHeight / imgMeta.height!)
-    const drawW = imgMeta.width! * scale
-    const drawH = imgMeta.height! * scale
+    const scale = Math.min(pageWidth / image.bitmap.width, pageHeight / image.bitmap.height)
+    const drawW = image.bitmap.width * scale
+    const drawH = image.bitmap.height * scale
 
     const page = pdfDoc.addPage([pageWidth, pageHeight])
     let embeddedImage

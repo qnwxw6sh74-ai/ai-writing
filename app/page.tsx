@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "公众号爆文生成器 — AI智能写作助手，一键生成高质量原创文章",
   description: "专业的AI公众号文章生成工具，覆盖情感、职场、教育等30+领域。输入关键词秒级生成爆款文章、黄金标题、智能配图，助你轻松产出10W+爆文。AI写作、文章生成器、智能写作首选平台。",
   keywords: "AI写作,公众号爆文,文章生成器,自媒体助手,智能写作,公众号写作,内容创作,AI生成文章,AI写作平台,AI配图",
-  alternates: { canonical: "https://w.wyrunwu.com" },
+  alternates: { canonical: "https://pdf.wyrunwu.com" },
 }
 
 // 默认静态数据（数据库不可用时的降级方案）
@@ -51,7 +51,7 @@ export default async function HomePage() {
             "@context": "https://schema.org",
             "@type": "WebApplication",
             name: "公众号爆文生成器",
-            url: "https://w.wyrunwu.com",
+            url: "https://pdf.wyrunwu.com",
             description: "专业的AI公众号文章生成工具，覆盖情感、职场、教育等30+领域。输入关键词秒级生成爆款文章、黄金标题、智能配图。",
             applicationCategory: "AIApplication",
             operatingSystem: "Web",

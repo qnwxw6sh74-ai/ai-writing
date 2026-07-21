@@ -1,4 +1,5 @@
 import { getAllTools } from '@/lib/tools/registry'
+import { ToolGrid } from '@/components/tools/ToolGrid'
 
 export default function ToolsPage() {
   const tools = getAllTools()

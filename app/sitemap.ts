@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next"
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://w.wyrunwu.com"
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://pdf.wyrunwu.com"
 
   const routes = [
     { path: "", freq: "hourly" as const, priority: 1 },

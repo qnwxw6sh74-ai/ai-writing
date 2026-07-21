@@ -1,4 +1,4 @@
-import sharp from 'sharp'
+import Jimp from 'jimp'
 import fs from 'node:fs/promises'
 
 export interface CompressOptions {
@@ -15,14 +15,14 @@ export async function compressImage(
   const stat = await fs.stat(inputPath)
   const originalSize = stat.size
 
-  const config: sharp.SharpOptions = {}
-  if (options.width) config.width = options.width
-  if (options.height) config.height = options.height
+  const image = await Jimp.read(inputPath)
 
-  await sharp(inputPath, config)
-    .resize(options.width, options.height, { fit: 'inside' })
-    .jpeg({ quality: options.quality || 80 })
-    .toFile(outputPath)
+  if (options.width || options.height) {
+    image.resize(options.width, options.height, Jimp.RESIZE_BESIDE)
+  }
+
+  image.quality(options.quality || 80)
+  await image.writeAsync(outputPath)
 
   const outStat = await fs.stat(outputPath)
   return {

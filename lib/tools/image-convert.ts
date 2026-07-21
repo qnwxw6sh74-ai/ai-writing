@@ -1,8 +1,8 @@
-import sharp from 'sharp'
+import Jimp from 'jimp'
 import fs from 'node:fs/promises'
 
 export interface ConvertOptions {
-  format: 'jpeg' | 'png' | 'webp' | 'tiff' | 'gif' | 'svg'
+  format: 'jpeg' | 'png' | 'webp' | 'tiff' | 'gif'
   quality?: number
 }
 
@@ -14,30 +14,28 @@ export async function convertImage(
   const stat = await fs.stat(inputPath)
   const originalSize = stat.size
 
-  let sharpInstance = sharp(inputPath)
+  const image = await Jimp.read(inputPath)
 
   switch (options.format) {
     case 'jpeg':
-      sharpInstance = sharpInstance.jpeg({ quality: options.quality || 80 })
+      image.quality(options.quality || 80)
       break
     case 'png':
-      sharpInstance = sharpInstance.png({ quality: options.quality || 80 })
+      image.quality(options.quality || 80)
       break
     case 'webp':
-      sharpInstance = sharpInstance.webp({ quality: options.quality || 80 })
+      image.quality(options.quality || 80)
       break
     case 'tiff':
-      sharpInstance = sharpInstance.tiff()
+      // Jimp doesn't support tiff well, fall back to png
+      options.format = 'png'
       break
     case 'gif':
-      sharpInstance = sharpInstance.gif()
-      break
-    case 'svg':
-      sharpInstance = sharpInstance.svg()
+      // Jimp has limited gif support
       break
   }
 
-  await sharpInstance.toFile(outputPath)
+  await image.writeAsync(outputPath)
 
   const outStat = await fs.stat(outputPath)
   return {

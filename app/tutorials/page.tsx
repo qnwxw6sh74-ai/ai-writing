@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "AI写作教程 — 文章生成器使用指南",
   description: "AI写作文章生成器使用教程，从零开始学习内容创作。覆盖文章生成、标题创作、AI配图等完整指南。",
   keywords: "AI写作教程,文章生成器使用,内容创作指南,公众号写作教程,AI写作入门",
-  alternates: { canonical: "https://w.wyrunwu.com/tutorials" },
+  alternates: { canonical: "https://pdf.wyrunwu.com/tutorials" },
 }
 
 interface TutorialItem { title: string; content: string }
