@@ -133,7 +133,7 @@ export async function sendVerificationEmail(
       subject: '验证您的邮箱 — AI爆文生成器',
       html: `
         <div style="max-width:600px;margin:0 auto;padding:20px;font-family:Arial,sans-serif">
-          <h2 style="color:#ef4444">AI 爆文生成器</h2>
+          <h2 style="color:#ef4444">DocConverter</h2>
           <p>感谢注册！请点击下方按钮验证您的邮箱地址：</p>
           <a href="${verifyUrl}" style="display:inline-block;background:#ef4444;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;margin:16px 0">验证邮箱</a>
           <p style="color:#888;font-size:12px">如果按钮无法点击，请复制以下链接到浏览器：</p>

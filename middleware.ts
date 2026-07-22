@@ -8,9 +8,9 @@ if (!process.env.JWT_SECRET) {
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
 
 /** 需要用户登录的 API 路由 */
-const USER_API_ROUTES = ["/api/payment/", "/api/style/", "/api/tools/", "/api/miniapp/"]
+const USER_API_ROUTES = ["/api/payment/", "/api/tools/", "/api/miniapp/"]
 /** 需要用户登录的页面路由 */
-const USER_PAGE_ROUTES = ["/style-lab", "/pricing", "/profile", "/originality-check", "/tools"]
+const USER_PAGE_ROUTES = ["/profile", "/tools"]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -114,28 +114,15 @@ export const config = {
   matcher: [
     "/api/admin/:path*",
     "/api/payment/:path*",
-    "/api/style/:path*",
     "/api/auth/:path*",
-    "/api/generate",
-    "/api/generate/:path*",
-    "/api/image/:path*",
+    "/api/tools/:path*",
+    "/api/upload",
     "/api/credits",
-    "/api/article/confirm",
-    "/api/article/rewrite",
-    "/api/history",
-    "/api/hot-topics",
-    "/api/invite/:path*",
     "/api/plans",
-    "/api/editor/track",
-    "/api/title",
     "/admin/:path*",
-    "/style-lab",
-    "/style-lab/:path*",
-    "/pricing",
-    "/originality-check",
     "/profile",
     "/profile/:path*",
-    "/hot-topics",
-    "/hot-topics/:path*",
+    "/tools",
+    "/tools/:path*",
   ],
 }

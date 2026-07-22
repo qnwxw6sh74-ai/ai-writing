@@ -8,14 +8,11 @@ interface NavLink { label: string; href: string }
 
 const defaultNavLinks: NavLink[] = [
   { label: "首页", href: "/" },
-  { label: "爆文题目生成", href: "/title-generator" },
-  { label: "爆文生成", href: "/generate" },
-  { label: "图片生成", href: "/image-generator" },
-  { label: "原创检测", href: "/originality-check" },
-  { label: "使用教程", href: "/tutorials" },
-  { label: "风格实验室", href: "/style-lab" },
-  { label: "留言板", href: "/guestbook" },
-  { label: "更新日志", href: "/changelog" },
+  { label: "图片压缩", href: "/tools/image-compress" },
+  { label: "格式转换", href: "/tools/image-convert" },
+  { label: "PDF 合并", href: "/tools/pdf-merge" },
+  { label: "PDF 拆分", href: "/tools/pdf-split" },
+  { label: "图片转 PDF", href: "/tools/image-to-pdf" },
   { label: "关于我们", href: "/about" },
 ]
 
@@ -25,7 +22,7 @@ interface Props {
   enablePayment?: boolean
 }
 
-export function Header({ siteName = "公众号爆文生成器", navLinks = defaultNavLinks, enablePayment = false }: Props) {
+export function Header({ siteName = "DocConverter", navLinks = defaultNavLinks, enablePayment = false }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState<{ nickname: string } | null>(null)
 

@@ -4,9 +4,7 @@ interface FooterLink { label: string; href: string }
 
 const defaultLinks: FooterLink[] = [
   { label: "关于我们", href: "/about" },
-  { label: "使用教程", href: "/tutorials" },
-  { label: "更新日志", href: "/changelog" },
-  { label: "留言板", href: "/guestbook" },
+  { label: "使用指南", href: "/tools" },
 ]
 
 interface Props {
@@ -15,7 +13,7 @@ interface Props {
   links?: FooterLink[]
 }
 
-export function Footer({ email = "contact@你的域名.com", copyright = "公众号爆文生成器 — AI写作文章生成器 | 内容创作工具平台", links = defaultLinks }: Props) {
+export function Footer({ email = "contact@yourdomain.com", copyright = "DocConverter — 免费在线文档转换工具", links = defaultLinks }: Props) {
   return (
     <footer className="w-full border-t border-zinc-800 bg-zinc-950 py-8 mt-auto">
       <div className="max-w-7xl mx-auto px-4 text-center">
